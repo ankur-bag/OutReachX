@@ -9,8 +9,8 @@ import {
 
 const Navbar = () => {
   return (
-    <div className='w-full h-20  flex items-center px-10 justify-between bg-black'>
-      <a href= "/" className='text-3xl font-["Helvetica"] text-white cursor-pointer'>OutreachX</a>
+    <div className='w-full h-18  flex items-center px-10 justify-between bg-black'>
+      <a href= "/" className='text-3xl font-["Google Sans Flex"] text-white cursor-pointer'>OutreachX</a>
       <div className='flex justify-between gap-5'>
         <SignedOut>
           <SignInButton mode="modal">
