@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { CampaignProvider } from './CampaignContext'
 
 const steps = [
@@ -16,6 +16,7 @@ const steps = [
 
 export default function CampaignLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
 
   const currentStepIndex = steps.findIndex((s) => pathname.startsWith(s.path))
 
@@ -24,7 +25,12 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
       <div className="h-screen w-full bg-[radial-gradient(125%_125%_at_50%_101%,rgba(245,87,2,1)_10.5%,rgba(245,120,2,1)_16%,rgba(245,140,2,1)_17.5%,rgba(245,170,100,1)_25%,rgba(238,174,202,1)_40%,rgba(202,179,214,1)_65%,rgba(148,201,233,1)_100%)] relative overflow-hidden font-helvetica flex flex-col">
         {/* Header with Profile and Inbox */}
         <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex-1" />
+          <button
+            onClick={() => router.back()}
+            className="text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer"
+          >
+            Back
+          </button>
           <div className="flex items-center gap-4">
             <Link
               href="/inbox"

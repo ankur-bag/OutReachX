@@ -226,6 +226,13 @@ const CampaignPage = () => {
       <header className="border-b border-white/5 backdrop-blur-xl sticky top-0 z-20 bg-black/40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="text-xl hover:opacity-70 transition cursor-pointer"
+              title="Go back"
+            >
+              ←
+            </button>
             <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-500 flex items-center justify-center text-xs font-bold">
               OX
             </div>

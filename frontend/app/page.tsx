@@ -22,7 +22,7 @@ const page = () => {
   };
 
   return (
-    <div className='w-full min-h-screen '>
+    <div className='w-full min-h-screen hide-scrollbar '>
       <FUIHeroWithBorders
         isSignedIn={isSignedIn}
         onCampaignClick={handleCampaignClick}
