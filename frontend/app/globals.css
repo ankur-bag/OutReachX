@@ -78,3 +78,29 @@ html::-webkit-scrollbar {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;            
 }
+
+/* Custom scrollbar styling - thin, slick, and dark */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a202c;
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2d3748 transparent;
+}

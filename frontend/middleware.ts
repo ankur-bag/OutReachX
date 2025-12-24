@@ -11,8 +11,8 @@ const isProtectedRoute = createRouteMatcher([
 
 const isPublicRoute = createRouteMatcher(["/", "/sign-up(.*)", "/sign-in(.*)"]);
 
-export default clerkMiddleware((auth, req: NextRequest) => {
-  const { userId } = auth();
+export default clerkMiddleware(async (auth, req: NextRequest) => {
+  const { userId } = await auth();
 
   // If not authenticated and trying to access public routes, allow
   if (!userId && isPublicRoute(req)) {

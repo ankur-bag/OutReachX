@@ -20,12 +20,13 @@ interface OnboardingContextType {
   resetOnboarding: () => void
   showModal: boolean
   closeModal: () => void
+  isLoading: boolean
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined)
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const [onboarding, setOnboarding] = useState<OnboardingData>({
     businessType: '',
     targetAudience: '',
@@ -37,70 +38,46 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [hasInitialized, setHasInitialized] = useState(false)
 
-  // Load onboarding state from localStorage and Clerk metadata
+  // Initialize only once when user loads
   useEffect(() => {
-    if (user && !hasInitialized) {
-      // Check Clerk metadata first for the source of truth
-      const clerkOnboarded = (user.unsafeMetadata as any)?.onboardingCompleted ?? false
-      
-      if (clerkOnboarded) {
-        // If completed in Clerk, load the saved data from localStorage
-        const savedData = localStorage.getItem(`onboarding_${user.id}`)
-        if (savedData) {
-          try {
-            setOnboarding(JSON.parse(savedData))
-          } catch (error) {
-            console.error('Failed to parse saved onboarding data:', error)
-          }
-        }
-        setIsOnboardingCompleted(true)
-        setShowModal(false)
-      } else {
-        // If not completed, load any draft data from localStorage and show modal
-        const savedData = localStorage.getItem(`onboarding_${user.id}`)
-        if (savedData) {
-          try {
-            setOnboarding(JSON.parse(savedData))
-          } catch (error) {
-            console.error('Failed to parse saved onboarding data:', error)
-          }
-        }
-        setIsOnboardingCompleted(false)
-        setShowModal(true)
-      }
+    if (isLoaded && user) {
+      const onboardingComplete = (user.unsafeMetadata as any)?.onboardingComplete ?? false
+      setIsOnboardingCompleted(onboardingComplete)
+      setShowModal(!onboardingComplete)
       setIsLoading(false)
-      setHasInitialized(true)
+    } else if (isLoaded && !user) {
+      // User not signed in
+      setIsLoading(false)
     }
-  }, [user?.id, hasInitialized])
+  }, [isLoaded, user?.id]) // Only depend on isLoaded and user.id, not entire user object
 
   const updateOnboarding = (updates: Partial<OnboardingData>) => {
     setOnboarding((prev) => ({ ...prev, ...updates }))
   }
 
   const saveOnboarding = async () => {
-    if (user) {
-      // Save to localStorage
-      localStorage.setItem(`onboarding_${user.id}`, JSON.stringify(onboarding))
-
-      // Update Clerk metadata to mark onboarding as completed
-      try {
-        await user.update({
-          unsafeMetadata: {
-            onboardingCompleted: true,
-          },
-        })
-        setIsOnboardingCompleted(true)
-        setShowModal(false)
-      } catch (error) {
-        console.error('Failed to save onboarding to Clerk:', error)
-        // Even if Clerk update fails, mark as completed locally and close
-        setIsOnboardingCompleted(true)
-        setShowModal(false)
-      }
+  if (user) {
+    try {
+      await user.update({
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
+          onboardingComplete: true,
+        },
+      })
+      
+      // Reload user to get updated metadata
+      await user.reload()
+      
+      setIsOnboardingCompleted(true)
+      setShowModal(false)
+    } catch (error) {
+      console.error('Failed to save onboarding to Clerk:', error)
+      throw error
     }
   }
+}
+
 
   const resetOnboarding = () => {
     setOnboarding({
@@ -112,8 +89,16 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     })
     setIsOnboardingCompleted(false)
     setShowModal(true)
+    
     if (user) {
-      localStorage.removeItem(`onboarding_${user.id}`)
+      user.update({
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
+          onboardingComplete: false,
+        },
+      }).catch((error) => {
+        console.error('Failed to reset onboarding in Clerk:', error)
+      })
     }
   }
 
@@ -132,6 +117,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetOnboarding,
         showModal,
         closeModal,
+        isLoading,
       }}
     >
       {children}

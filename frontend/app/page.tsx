@@ -6,12 +6,14 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import FUIHeroWithBorders from '@/components/ui/herowith-logos';
 import { OnboardingFlow } from '@/components/Onboarding/OnboardingFlow'
+import { useOnboarding } from '@/components/Onboarding/OnboardingContext'
 import { div } from 'framer-motion/client';
 
 const page = () => {
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  const { showModal, isOnboardingCompleted } = useOnboarding();
 
   const handleCampaignClick = () => {
     if (isSignedIn) {
@@ -27,7 +29,7 @@ const page = () => {
         isSignedIn={isSignedIn}
         onCampaignClick={handleCampaignClick}
       />
-      {isSignedIn && <OnboardingFlow />}
+      {isSignedIn && showModal && <OnboardingFlow />}
     </div>
   )
 

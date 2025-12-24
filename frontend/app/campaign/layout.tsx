@@ -22,15 +22,16 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
 
   return (
     <CampaignProvider>
-      <div className="h-screen w-full bg-[radial-gradient(125%_125%_at_50%_101%,rgba(245,87,2,1)_10.5%,rgba(245,120,2,1)_16%,rgba(245,140,2,1)_17.5%,rgba(245,170,100,1)_25%,rgba(238,174,202,1)_40%,rgba(202,179,214,1)_65%,rgba(148,201,233,1)_100%)] relative overflow-hidden font-helvetica flex flex-col">
+      <div className="min-h-screen w-full bg-[radial-gradient(125%_125%_at_50%_101%,rgba(245,87,2,1)_10.5%,rgba(245,120,2,1)_16%,rgba(245,140,2,1)_17.5%,rgba(245,170,100,1)_25%,rgba(238,174,202,1)_40%,rgba(202,179,214,1)_65%,rgba(148,201,233,1)_100%)] relative overflow-hidden font-helvetica flex flex-col">
         {/* Header with Profile and Inbox */}
         <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
-          <button
-            onClick={() => router.back()}
+          <a
+          href='/'
+            // onClick={() => router.back()}
             className="text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer"
           >
             Back
-          </button>
+          </a>
           <div className="flex items-center gap-4">
             <Link
               href="/inbox"
@@ -40,13 +41,13 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
             </Link>
           </div>
         </div>
-        <div className="relative z-10 mt-10 flex flex-col items-center justify-center font-['Google Sans Flex'] ">
+        <div className="relative z-10 mb-10 flex flex-col items-center justify-center font-['Google Sans Flex'] ">
           <h1 className='text-7xl text-black '>Let's Start Your Campaign</h1>
         </div>
         {/* Content */}
         <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 py-2">
           {/* Central card */}
-          <div className="w-full max-w-2xl">
+          <div className="w-full max-w-5xl">
             {/* Step Navigation */}
             <div className="mb-8 flex items-center justify-start gap-2 overflow-x-auto pb-2">
               <div className="flex gap-2">
