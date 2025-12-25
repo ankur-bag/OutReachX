@@ -272,7 +272,7 @@ const InboxPage = () => {
                   <img
                     src={contact.profilePic || 'https://i.pravatar.cc/150'}
                     alt={contact.name}
-                    className='w-12 h-12 rounded-full object-cover flex-shrink-0'
+                    className='w-12 h-12 rounded-full object-cover shrink-0'
                   />
                   <div className='flex-1 min-w-0'>
                     <p className='text-sm font-medium text-gray-900'>{contact.name}</p>
@@ -281,7 +281,7 @@ const InboxPage = () => {
                     </p>
                   </div>
                   {contact.unread && (
-                    <div className='w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold ml-2 flex-shrink-0'>
+                    <div className='w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold ml-2 shrink-0'>
                       1
                     </div>
                   )}
@@ -321,7 +321,7 @@ const InboxPage = () => {
                 >
                   <div className='flex items-end gap-2'>
                     <div
-                      className={`max-w-xs px-4 py-2 rounded-lg break-words shadow-sm ${message.sender === 'user'
+                      className={`max-w-xs px-4 py-2 rounded-lg wrap-break-word shadow-sm ${message.sender === 'user'
                           ? 'bg-gray-200 text-gray-900'
                           : 'bg-green-500 text-white'
                         }`}

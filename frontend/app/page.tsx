@@ -29,7 +29,7 @@ const page = () => {
         isSignedIn={isSignedIn}
         onCampaignClick={handleCampaignClick}
       />
-      {isSignedIn && showModal && <OnboardingFlow />}
+      {isSignedIn && showModal && !isOnboardingCompleted && <OnboardingFlow />}
     </div>
   )
 

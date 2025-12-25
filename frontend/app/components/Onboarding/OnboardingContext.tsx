@@ -42,9 +42,22 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Initialize only once when user loads
   useEffect(() => {
     if (isLoaded && user) {
+      // Determine if this is a new user (created and last signed in at same time)
+      const isNewUser = user && user.createdAt && user.lastSignInAt && 
+        user.createdAt.getTime() === user.lastSignInAt.getTime()
+      
       const onboardingComplete = (user.unsafeMetadata as any)?.onboardingComplete ?? false
-      setIsOnboardingCompleted(onboardingComplete)
-      setShowModal(!onboardingComplete)
+      
+      // Only show modal if it's a new user AND they haven't completed onboarding
+      // Once onboardingComplete is true, never show modal again regardless of isNewUser
+      if (isNewUser && !onboardingComplete) {
+        setIsOnboardingCompleted(false)
+        setShowModal(true)
+      } else {
+        setIsOnboardingCompleted(true)
+        setShowModal(false)
+      }
+      
       setIsLoading(false)
     } else if (isLoaded && !user) {
       // User not signed in
@@ -57,26 +70,26 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }
 
   const saveOnboarding = async () => {
-  if (user) {
-    try {
-      await user.update({
-        unsafeMetadata: {
-          ...user.unsafeMetadata,
-          onboardingComplete: true,
-        },
-      })
-      
-      // Reload user to get updated metadata
-      await user.reload()
-      
-      setIsOnboardingCompleted(true)
-      setShowModal(false)
-    } catch (error) {
-      console.error('Failed to save onboarding to Clerk:', error)
-      throw error
+    if (user) {
+      try {
+        await user.update({
+          unsafeMetadata: {
+            ...(user.unsafeMetadata || {}),
+            onboardingComplete: true,
+          },
+        })
+        
+        // Reload user to get updated metadata
+        await user.reload()
+        
+        setIsOnboardingCompleted(true)
+        setShowModal(false)
+      } catch (error) {
+        console.error('Failed to save onboarding to Clerk:', error)
+        throw error
+      }
     }
   }
-}
 
 
   const resetOnboarding = () => {
