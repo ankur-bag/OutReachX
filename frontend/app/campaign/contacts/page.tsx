@@ -15,6 +15,8 @@ export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>(campaign.contacts)
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [contactsFile, setContactsFile] = useState<File | null>(null)
 
   const parseCSV = (text: string): Contact[] => {
     const lines = text.trim().split('\n')
@@ -60,6 +62,8 @@ export default function ContactsPage() {
     )
 
     if (files.length > 0) {
+      const file = files[0]
+      setContactsFile(file)
       const reader = new FileReader()
       reader.onload = (event) => {
         try {
@@ -75,12 +79,14 @@ export default function ContactsPage() {
           setError('Failed to parse file')
         }
       }
-      reader.readAsText(files[0])
+      reader.readAsText(file)
     }
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setContactsFile(file)
       const reader = new FileReader()
       reader.onload = (event) => {
         try {
@@ -96,17 +102,94 @@ export default function ContactsPage() {
           setError('Failed to parse CSV file')
         }
       }
-      reader.readAsText(e.target.files[0])
+      reader.readAsText(file)
     }
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (contacts.length === 0) {
       setError('Please upload contacts')
       return
     }
-    updateCampaign({ contacts })
-    router.push('/campaign/preview')
+
+    setIsLoading(true)
+    setError('')
+
+    try {
+      // Step 1: Create campaign with text only
+      console.log('📝 Step 1: Creating campaign with text data...')
+      
+      const createRes = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: campaign.title,
+          description: campaign.description,
+          channels: campaign.channels,
+          toneOfVoice: campaign.toneOfVoice,
+        }),
+      })
+
+      if (!createRes.ok) {
+        const createError = await createRes.json()
+        setError(createError.error || 'Failed to create campaign')
+        setIsLoading(false)
+        return
+      }
+
+      const { id: campaignId } = await createRes.json()
+      console.log('✅ Campaign created:', campaignId)
+
+      // Step 2: Upload files to Cloudinary and patch campaign
+      console.log('📤 Step 2: Uploading files...')
+      
+      const fileFormData = new FormData()
+      
+      // Add all assets
+      campaign.assets.forEach((file) => {
+        fileFormData.append('assets', file)
+      })
+
+      // Add contacts file
+      if (contactsFile) {
+        fileFormData.append('contactsFile', contactsFile)
+      } else {
+        // Create CSV from contacts array
+        const csvHeaders = 'name,phone\n'
+        const csvRows = contacts.map((c) => `${c.name},${c.phone}`).join('\n')
+        const csvContent = csvHeaders + csvRows
+        const csvBlob = new Blob([csvContent], { type: 'text/csv' })
+        const csvFile = new File([csvBlob], 'contacts.csv', { type: 'text/csv' })
+        fileFormData.append('contactsFile', csvFile)
+      }
+
+      const uploadRes = await fetch(`/api/campaigns/${campaignId}/files`, {
+        method: 'POST',
+        body: fileFormData,
+      })
+
+      if (!uploadRes.ok) {
+        const uploadError = await uploadRes.json()
+        setError(uploadError.error || 'Failed to upload files')
+        setIsLoading(false)
+        return
+      }
+
+      console.log('✅ Files uploaded successfully')
+
+      // Update context with campaignId and navigate
+      updateCampaign({
+        contacts,
+        contactsFile,
+        campaignId,
+      })
+
+      router.push('/campaign/preview')
+    } catch (err) {
+      console.error('Error saving campaign:', err)
+      setError('Failed to save campaign')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -162,15 +245,17 @@ export default function ContactsPage() {
       <div className="flex justify-between gap-3 pt-4">
         <button
           onClick={() => router.push('/campaign/assets')}
-          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer"
+          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isLoading}
         >
           Back
         </button>
         <button
           onClick={handleContinue}
-          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer"
+          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isLoading}
         >
-          Continue
+          {isLoading ? 'Previewing...' : 'Continue'}
         </button>
       </div>
     </div>

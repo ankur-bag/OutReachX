@@ -2,15 +2,21 @@
 
 import React, { createContext, useContext, useState } from 'react'
 
+export interface ChannelConfig {
+  text?: { enabled: boolean; wordLimit?: number }
+  voice?: { enabled: boolean; maxDurationSeconds?: number }
+  calls?: { enabled: boolean; maxCallDurationSeconds?: number }
+}
+
 export interface CampaignData {
+  campaignId?: string
   title: string
   description: string
-  channels: ('Text' | 'Voice' | 'Calls')[]
+  channels: ChannelConfig
   toneOfVoice?: 'friendly' | 'professional' | 'energetic' | 'formal' | 'casual'
-  wordLimit?: number // in words
-  voiceDuration?: number // in minutes (1, 2, or 3)
   assets: File[]
   contacts: { name: string; phone: string }[]
+  contactsFile?: File | null
 }
 
 interface CampaignContextType {
@@ -22,14 +28,14 @@ const CampaignContext = createContext<CampaignContextType | undefined>(undefined
 
 export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [campaign, setCampaign] = useState<CampaignData>({
+    campaignId: undefined,
     title: '',
     description: '',
-    channels: [],
+    channels: {},
     toneOfVoice: undefined,
-    wordLimit: undefined,
-    voiceDuration: 1,
     assets: [],
     contacts: [],
+    contactsFile: null,
   })
 
   const updateCampaign = (updates: Partial<CampaignData>) => {

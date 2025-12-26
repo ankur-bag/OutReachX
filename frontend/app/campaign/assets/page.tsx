@@ -9,6 +9,9 @@ export default function AssetsPage() {
   const { campaign, updateCampaign } = useCampaign()
   const [assets, setAssets] = useState<File[]>(campaign.assets)
   const [dragActive, setDragActive] = useState(false)
+  const [error, setError] = useState('')
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -24,12 +27,30 @@ export default function AssetsPage() {
     const files = Array.from(e.dataTransfer.files).filter((file) =>
       ['image/png', 'image/jpeg', 'video/mp4', 'video/quicktime'].includes(file.type)
     )
+    
+    // Check file sizes
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
+    if (oversized.length > 0) {
+      setError(`${oversized.length} file(s) exceed 10MB limit`)
+      return
+    }
+    
+    setError('')
     setAssets((prev) => [...prev, ...files])
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files)
+      
+      // Check file sizes
+      const oversized = files.filter(f => f.size > MAX_FILE_SIZE)
+      if (oversized.length > 0) {
+        setError(`${oversized.length} file(s) exceed 10MB limit`)
+        return
+      }
+      
+      setError('')
       setAssets((prev) => [...prev, ...files])
     }
   }
@@ -77,7 +98,7 @@ export default function AssetsPage() {
               />
             </label>
           </div>
-          <p className="text-xs text-white/50">PNG, JPG, MP4, MOV up to 100MB</p>
+          <p className="text-xs text-white/50">PNG, JPG, MP4, MOV up to 10MB each</p>
         </div>
       </div>
 
@@ -103,6 +124,8 @@ export default function AssetsPage() {
           </div>
         </div>
       )}
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <div className="flex justify-between gap-3 pt-4">
         <button

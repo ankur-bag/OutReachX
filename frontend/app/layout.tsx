@@ -22,7 +22,7 @@ export default function RootLayout({
     <ClerkProvider>
       <OnboardingProvider>
         <html lang="en">
-          <body>
+          <body suppressHydrationWarning>
             <Navbar />
             {children}
           </body>

@@ -2,44 +2,69 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useCampaign } from '../CampaignContext'
+import { useCampaign, type ChannelConfig } from '../CampaignContext'
 
 export default function ChannelsPage() {
   const router = useRouter()
   const { campaign, updateCampaign } = useCampaign()
-  const [channels, setChannels] = useState<('Text' | 'Voice' | 'Calls')[]>(campaign.channels)
+  
+  const [selectedChannels, setSelectedChannels] = useState<Set<'text' | 'voice' | 'calls'>>(
+    new Set(Object.keys(campaign.channels).filter(k => campaign.channels[k as keyof ChannelConfig]?.enabled))
+  )
   const [tone, setTone] = useState(campaign.toneOfVoice || 'professional')
-  const [wordLimit, setWordLimit] = useState(campaign.wordLimit || 100)
-  const [voiceDuration, setVoiceDuration] = useState(campaign.voiceDuration || 1)
+  const [textWordLimit, setTextWordLimit] = useState(campaign.channels.text?.wordLimit || 100)
+  const [voiceDuration, setVoiceDuration] = useState(campaign.channels.voice?.maxDurationSeconds || 60)
+  const [callsDuration, setCallsDuration] = useState(campaign.channels.calls?.maxCallDurationSeconds || 180)
   const [error, setError] = useState('')
 
-  const channelOptions = ['Text', 'Voice', 'Calls'] as const
+  const channelOptions = ['text', 'voice', 'calls'] as const
   const toneOptions = ['friendly', 'professional', 'energetic', 'formal', 'casual'] as const
   const wordLimitOptions = [50, 100, 150, 200, 300] as const
-  const voiceDurationOptions = [1, 2, 3] as const
+  const voiceDurationOptions = [30, 60, 120, 180] as const
 
-  const toggleChannel = (channel: 'Text' | 'Voice' | 'Calls') => {
-    setChannels((prev) => (prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel]))
+  const toggleChannel = (channel: 'text' | 'voice' | 'calls') => {
+    setSelectedChannels((prev) => {
+      const updated = new Set(prev)
+      if (updated.has(channel)) {
+        updated.delete(channel)
+      } else {
+        updated.add(channel)
+      }
+      return updated
+    })
     setError('')
   }
 
   const handleContinue = () => {
-    if (channels.length === 0) {
+    if (selectedChannels.size === 0) {
       setError('Please select at least one channel')
       return
     }
+
+    // Build channel config object
+    const channels: ChannelConfig = {}
+    
+    if (selectedChannels.has('text')) {
+      channels.text = { enabled: true, wordLimit: textWordLimit }
+    }
+    if (selectedChannels.has('voice')) {
+      channels.voice = { enabled: true, maxDurationSeconds: voiceDuration }
+    }
+    if (selectedChannels.has('calls')) {
+      channels.calls = { enabled: true, maxCallDurationSeconds: callsDuration }
+    }
+
     updateCampaign({ 
-      channels, 
+      channels,
       toneOfVoice: tone as any,
-      wordLimit: channels.includes('Text') ? wordLimit : undefined,
-      voiceDuration: (channels.includes('Voice') || channels.includes('Calls')) ? voiceDuration : undefined
     })
     router.push('/campaign/assets')
   }
 
-  const showTone = channels.includes('Voice') || channels.includes('Calls')
-  const showWordLimit = channels.includes('Text')
-  const showVoiceDuration = channels.includes('Voice') || channels.includes('Calls')
+  const showTone = selectedChannels.has('voice') || selectedChannels.has('calls')
+  const showTextSettings = selectedChannels.has('text')
+  const showVoiceSettings = selectedChannels.has('voice')
+  const showCallsSettings = selectedChannels.has('calls')
 
   return (
     <div className="space-y-6">
@@ -56,12 +81,12 @@ export default function ChannelsPage() {
               key={channel}
               onClick={() => toggleChannel(channel)}
               className={`px-4 py-3 rounded-2xl cursor-pointer transition ${
-                channels.includes(channel)
+                selectedChannels.has(channel)
                   ? 'bg-white text-black hover:bg-white/95 shadow-[0_4px_12px_rgba(255,255,255,0.2)]'
                   : 'bg-black/40 border border-white/20 text-white/70 hover:bg-black/50'
               }`}
             >
-              {channel}
+              {channel.charAt(0).toUpperCase() + channel.slice(1)}
             </button>
           ))}
         </div>
@@ -91,16 +116,16 @@ export default function ChannelsPage() {
       )}
 
       {/* Text Word Limit */}
-      {showWordLimit && (
+      {showTextSettings && (
         <div>
-          <h3 className="text-sm  text-white mb-3">Word limit</h3>
+          <h3 className="text-sm  text-white mb-3">Word limit (Text)</h3>
           <div className="flex flex-wrap gap-2">
             {wordLimitOptions.map((limit) => (
               <button
                 key={limit}
-                onClick={() => setWordLimit(limit)}
+                onClick={() => setTextWordLimit(limit)}
                 className={`px-4 py-2 rounded-lg text-sm cursor-pointer transition ${
-                  wordLimit === limit
+                  textWordLimit === limit
                     ? 'bg-white text-black hover:bg-white/95 shadow-[0_4px_12px_rgba(255,255,255,0.2)]'
                     : 'bg-black/40 border border-white/20 text-white/70 hover:bg-black/50'
                 }`}
@@ -113,7 +138,7 @@ export default function ChannelsPage() {
       )}
 
       {/* Voice Duration */}
-      {showVoiceDuration && (
+      {showVoiceSettings && (
         <div>
           <h3 className="text-sm  text-white mb-3">Voice message duration</h3>
           <div className="flex flex-wrap gap-2">
@@ -127,11 +152,32 @@ export default function ChannelsPage() {
                     : 'bg-black/40 border border-white/20 text-white/70 hover:bg-black/50'
                 }`}
               >
-                {duration} min
+                {duration} seconds
               </button>
             ))}
           </div>
-          <p className="text-xs text-white/50 mt-2">Default: 1 minute</p>
+        </div>
+      )}
+
+      {/* Calls Duration */}
+      {showCallsSettings && (
+        <div>
+          <h3 className="text-sm  text-white mb-3">Max call duration</h3>
+          <div className="flex flex-wrap gap-2">
+            {voiceDurationOptions.map((duration) => (
+              <button
+                key={`call-${duration}`}
+                onClick={() => setCallsDuration(duration)}
+                className={`px-4 py-2 rounded-lg text-sm cursor-pointer transition ${
+                  callsDuration === duration
+                    ? 'bg-white text-black hover:bg-white/95 shadow-[0_4px_12px_rgba(255,255,255,0.2)]'
+                    : 'bg-black/40 border border-white/20 text-white/70 hover:bg-black/50'
+                }`}
+              >
+                {duration} seconds
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

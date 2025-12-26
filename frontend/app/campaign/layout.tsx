@@ -34,8 +34,14 @@ export default function CampaignLayout({ children }: { children: React.ReactNode
           </a>
           <div className="flex items-center gap-4">
             <Link
+              href="/yourcampaigns"
+              className="text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer"
+            >
+              Your Campaigns
+            </Link>
+            <Link
               href="/inbox"
-              className="text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl  hover:bg-black/10 transition cursor-pointer"
+              className="text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer"
             >
               Inbox
             </Link>

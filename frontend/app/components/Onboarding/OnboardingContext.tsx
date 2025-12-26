@@ -8,6 +8,9 @@ export interface OnboardingData {
   targetAudience: 'b2c' | 'b2b' | 'both' | ''
   brandStyle: ('professional' | 'friendly' | 'casual' | 'energetic' | 'premium')[]
   responsePreference: 'short' | 'balanced' | 'detailed' | ''
+  language?: 'english' | 'hindi' | ''
+  region?: 'india' | 'global' | ''
+  complianceNotes?: string
   termsAccepted: boolean
 }
 
@@ -32,6 +35,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     targetAudience: '',
     brandStyle: [],
     responsePreference: '',
+    language: '',
+    region: '',
+    complianceNotes: '',
     termsAccepted: false,
   })
 
@@ -42,20 +48,17 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // Initialize only once when user loads
   useEffect(() => {
     if (isLoaded && user) {
-      // Determine if this is a new user (created and last signed in at same time)
-      const isNewUser = user && user.createdAt && user.lastSignInAt && 
-        user.createdAt.getTime() === user.lastSignInAt.getTime()
-      
+      // Check if user completed onboarding from Clerk metadata
       const onboardingComplete = (user.unsafeMetadata as any)?.onboardingComplete ?? false
       
-      // Only show modal if it's a new user AND they haven't completed onboarding
-      // Once onboardingComplete is true, never show modal again regardless of isNewUser
-      if (isNewUser && !onboardingComplete) {
-        setIsOnboardingCompleted(false)
-        setShowModal(true)
-      } else {
+      if (onboardingComplete) {
+        // User has completed onboarding before
         setIsOnboardingCompleted(true)
         setShowModal(false)
+      } else {
+        // User hasn't completed onboarding yet, show the modal
+        setIsOnboardingCompleted(false)
+        setShowModal(true)
       }
       
       setIsLoading(false)
@@ -72,6 +75,21 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const saveOnboarding = async () => {
     if (user) {
       try {
+        // Save to API route (which will use Admin SDK)
+        const response = await fetch('/api/onboarding', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(onboarding),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to save onboarding')
+        }
+
+        // Update Clerk metadata to mark onboarding as completed
         await user.update({
           unsafeMetadata: {
             ...(user.unsafeMetadata || {}),
@@ -85,7 +103,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setIsOnboardingCompleted(true)
         setShowModal(false)
       } catch (error) {
-        console.error('Failed to save onboarding to Clerk:', error)
+        console.error('Failed to save onboarding:', error)
         throw error
       }
     }
@@ -98,6 +116,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       targetAudience: '',
       brandStyle: [],
       responsePreference: '',
+      language: '',
+      region: '',
+      complianceNotes: '',
       termsAccepted: false,
     })
     setIsOnboardingCompleted(false)
