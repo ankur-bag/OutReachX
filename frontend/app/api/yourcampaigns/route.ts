@@ -10,21 +10,57 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("📋 Fetching campaigns for user:", userId);
+    console.log("📋 Fetching launched campaigns for user:", userId);
 
     const snap = await db
       .collection("users")
       .doc(userId)
       .collection("campaigns")
-      .orderBy("createdAt", "desc")
+      .where("status", "==", "launched")
+      .orderBy("createdAt", "asc")
       .get();
 
-    const campaigns = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const campaigns = snap.docs
+      .map((doc) => {
+        const data = doc.data() as any;
+        
+        // ✅ Extract nested fields properly
+        const channelContent = {
+          voice: { transcript: data.channelContent?.voice?.transcript || '' },
+          calls: { transcript: data.channelContent?.calls?.transcript || '' }
+        };
+        
+        const audioUrls = {
+          voice: data.audioUrls?.voice || '',
+          calls: data.audioUrls?.calls || ''
+        };
+        
+        const audioPublicIds = {
+          voice: data.audioPublicIds?.voice || '',
+          calls: data.audioPublicIds?.calls || ''
+        };
 
-    console.log(`✅ Found ${campaigns.length} campaigns`);
+        return {
+          id: doc.id,
+          ...data,
+          channelContent,
+          audioUrls,
+          audioPublicIds,
+        };
+      })
+      .reverse();
+
+    console.log(`✅ Found ${campaigns.length} launched campaigns`);
+    
+    // Better logging
+    if (campaigns.length > 0) {
+      console.log('📊 First campaign transcripts:', {
+        voice: campaigns[0].channelContent?.voice?.transcript?.substring(0, 100) + '...',
+        calls: campaigns[0].channelContent?.calls?.transcript?.substring(0, 100) + '...',
+        audioVoice: campaigns[0].audioUrls?.voice ? '✅' : '❌',
+        audioCalls: campaigns[0].audioUrls?.calls ? '✅' : '❌',
+      });
+    }
 
     return NextResponse.json({ campaigns });
   } catch (error) {

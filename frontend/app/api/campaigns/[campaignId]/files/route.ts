@@ -1,3 +1,14 @@
+/**
+ * File Upload Route Handler
+ * 
+ * This route handles all file uploads for a campaign:
+ * - Assets (images, videos) - stored in "assets" FormData entries
+ * - Contacts CSV/Excel - stored in "contactsFile" FormData entry
+ * 
+ * Files are uploaded to Cloudinary and metadata is stored in Firestore.
+ * This is the primary REST API endpoint for file uploads (replaces Server Actions).
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase/admin";
 import { auth } from "@clerk/nextjs/server";
@@ -32,7 +43,9 @@ export async function POST(request: NextRequest, { params }: Context) {
 
     console.log("📊 Received:", {
       assetsCount: assetFiles.length,
+      assetsNames: assetFiles.map(f => f.name),
       hasContacts: !!contactsFileData,
+      contactsFileName: contactsFileData?.name,
     });
 
     // 1) Upload assets (images/videos)
@@ -72,14 +85,21 @@ export async function POST(request: NextRequest, { params }: Context) {
 
     console.log("💾 Patching Firestore...");
 
-    await ref.set(
-      {
-        assets: assets.length > 0 ? assets : [],
-        contactsFile,
-        updatedAt: new Date(),
-      },
-      { merge: true }
-    );
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    // Only update assets if any were uploaded in this request
+    if (assetFiles.length > 0) {
+      updateData.assets = assets;
+    }
+
+    // Always update contactsFile if provided
+    if (contactsFileData) {
+      updateData.contactsFile = contactsFile;
+    }
+
+    await ref.set(updateData, { merge: true });
 
     console.log("✅ Campaign files saved:", {
       assets: assets.length,

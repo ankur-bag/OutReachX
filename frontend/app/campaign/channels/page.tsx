@@ -16,6 +16,7 @@ export default function ChannelsPage() {
   const [voiceDuration, setVoiceDuration] = useState(campaign.channels.voice?.maxDurationSeconds || 60)
   const [callsDuration, setCallsDuration] = useState(campaign.channels.calls?.maxCallDurationSeconds || 180)
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const channelOptions = ['text', 'voice', 'calls'] as const
   const toneOptions = ['friendly', 'professional', 'energetic', 'formal', 'casual'] as const
@@ -35,30 +36,64 @@ export default function ChannelsPage() {
     setError('')
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedChannels.size === 0) {
       setError('Please select at least one channel')
       return
     }
 
-    // Build channel config object
-    const channels: ChannelConfig = {}
-    
-    if (selectedChannels.has('text')) {
-      channels.text = { enabled: true, wordLimit: textWordLimit }
-    }
-    if (selectedChannels.has('voice')) {
-      channels.voice = { enabled: true, maxDurationSeconds: voiceDuration }
-    }
-    if (selectedChannels.has('calls')) {
-      channels.calls = { enabled: true, maxCallDurationSeconds: callsDuration }
-    }
+    try {
+      setError('')
+      setIsLoading(true)
 
-    updateCampaign({ 
-      channels,
-      toneOfVoice: tone as any,
-    })
-    router.push('/campaign/assets')
+      // Build channel config object
+      const channels: ChannelConfig = {}
+      
+      if (selectedChannels.has('text')) {
+        channels.text = { enabled: true, wordLimit: textWordLimit }
+      }
+      if (selectedChannels.has('voice')) {
+        channels.voice = { enabled: true, maxDurationSeconds: voiceDuration }
+      }
+      if (selectedChannels.has('calls')) {
+        channels.calls = { enabled: true, maxCallDurationSeconds: callsDuration }
+      }
+
+      // Update local context
+      updateCampaign({ 
+        channels,
+        toneOfVoice: tone as any,
+      })
+
+      // Patch draft document if campaignId exists
+      if (campaign.campaignId) {
+        console.log('📝 Updating draft campaign with channels...')
+        const res = await fetch('/api/campaigns/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            campaignId: campaign.campaignId,
+            channels,
+            toneOfVoice: tone,
+            wordLimit: textWordLimit,
+          }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Failed to update campaign')
+        }
+
+        console.log('✅ Draft updated with channels')
+      }
+
+      router.push('/campaign/assets')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update campaign')
+      console.error('Error updating campaign:', err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const showTone = selectedChannels.has('voice') || selectedChannels.has('calls')
@@ -184,15 +219,17 @@ export default function ChannelsPage() {
       <div className="flex justify-between gap-3 pt-4">
         <button
           onClick={() => router.push('/campaign/description')}
-          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer"
+          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isLoading}
         >
           Back
         </button>
         <button
           onClick={handleContinue}
-          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer"
+          disabled={isLoading}
+          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Continue
+          {isLoading ? '⟳ Updating...' : 'Continue'}
         </button>
       </div>
     </div>

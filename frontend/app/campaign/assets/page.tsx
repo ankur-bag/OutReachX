@@ -1,3 +1,10 @@
+/**
+ * Campaign Assets Upload Page
+ * 
+ * Handles uploading images and videos for the campaign.
+ * Files are uploaded immediately to the draft campaign via /api/campaigns/[campaignId]/files.
+ */
+
 'use client'
 
 import { useState } from 'react'
@@ -7,9 +14,10 @@ import { useCampaign } from '../CampaignContext'
 export default function AssetsPage() {
   const router = useRouter()
   const { campaign, updateCampaign } = useCampaign()
-  const [assets, setAssets] = useState<File[]>(campaign.assets)
+  const [assets, setAssets] = useState<File[]>(campaign.assets || [])
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState('')
+  const [isUploading, setIsUploading] = useState(false)
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -17,6 +25,44 @@ export default function AssetsPage() {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(e.type === 'dragenter' || e.type === 'dragover')
+  }
+
+  const uploadAssets = async (filesToUpload: File[]) => {
+    if (!campaign.campaignId) {
+      setError('Campaign ID not found. Please go back and try again.')
+      return false
+    }
+
+    try {
+      setError('')
+      setIsUploading(true)
+
+      const formData = new FormData()
+      filesToUpload.forEach((file) => {
+        formData.append('assets', file)
+      })
+
+      console.log('📤 Uploading assets to draft campaign...')
+      const res = await fetch(`/api/campaigns/${campaign.campaignId}/files`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to upload assets')
+      }
+
+      console.log('✅ Assets uploaded successfully')
+      return true
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to upload assets'
+      setError(errorMsg)
+      console.error('Error uploading assets:', err)
+      return false
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -59,7 +105,14 @@ export default function AssetsPage() {
     setAssets((prev) => prev.filter((_, i) => i !== idx))
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // Upload assets if any
+    if (assets.length > 0) {
+      const uploaded = await uploadAssets(assets)
+      if (!uploaded) return
+    }
+
+    // Update context and continue
     updateCampaign({ assets })
     router.push('/campaign/contacts')
   }
@@ -102,13 +155,15 @@ export default function AssetsPage() {
         </div>
       </div>
 
-      {/* Assets list */}
+      {/* Assets list - show selected files */}
       {assets.length > 0 && (
         <div>
-          <h3 className="text-sm  text-white mb-3">Uploaded assets ({assets.length})</h3>
+          <h3 className="text-sm text-white mb-3">
+            Assets ({assets.length})
+          </h3>
           <div className="grid grid-cols-2 gap-2">
             {assets.map((file, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-black/40 border border-white/10 rounded-lg p-3">
+              <div key={`asset-${idx}`} className="flex items-center justify-between bg-blue-900/30 border border-blue-500/40 rounded-lg p-3">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-lg">{file.type.startsWith('image') ? '🖼️' : '🎬'}</span>
                   <span className="text-sm text-white/80 truncate">{file.name}</span>
@@ -130,15 +185,17 @@ export default function AssetsPage() {
       <div className="flex justify-between gap-3 pt-4">
         <button
           onClick={() => router.push('/campaign/channels')}
-          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer"
+          className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isUploading}
         >
           Back
         </button>
         <button
           onClick={handleContinue}
-          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer"
+          disabled={isUploading}
+          className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Continue
+          {isUploading ? '⟳ Uploading...' : 'Continue'}
         </button>
       </div>
     </div>

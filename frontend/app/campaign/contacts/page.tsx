@@ -1,6 +1,12 @@
+/**
+ * Campaign Contacts Upload Page
+ * 
+ * Files are uploaded immediately to the draft campaign via /api/campaigns/[campaignId]/contacts.
+ */
+
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCampaign } from '../CampaignContext'
 
@@ -9,57 +15,90 @@ interface Contact {
   phone: string
 }
 
-interface ContactsSummary {
-  count: number
-  items: Contact[]
-}
-
 export default function ContactsPage() {
   const router = useRouter()
   const { campaign, updateCampaign } = useCampaign()
-  const [contacts, setContacts] = useState<Contact[]>(campaign.contacts)
   const [dragActive, setDragActive] = useState(false)
   const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isExtracting, setIsExtracting] = useState(false)
-  const [contactsFile, setContactsFile] = useState<File | null>(null)
-  const [campaignId, setCampaignId] = useState<string | null>(null)
-  const [contactsSummary, setContactsSummary] = useState<ContactsSummary | null>(null)
-  const [showContacts, setShowContacts] = useState(false)
-  const [loadingContactsSummary, setLoadingContactsSummary] = useState(false)
-
-  const parseCSV = (text: string): Contact[] => {
-    const lines = text.trim().split('\n')
-    const result: Contact[] = []
-
-    lines.forEach((line, idx) => {
-      if (idx === 0) return // Skip header
-      const [name, phone] = line.split(',').map((s) => s.trim())
-      if (name && phone) {
-        result.push({ name, phone })
-      }
-    })
-
-    return result
-  }
-
-  const parseExcel = (arrayBuffer: ArrayBuffer): Contact[] => {
-    // Simple Excel parsing - looking for Name and Phone columns
-    const result: Contact[] = []
-    try {
-      // For now, we'll treat Excel similar to CSV by converting to string
-      const view = new Uint8Array(arrayBuffer)
-      const text = String.fromCharCode.apply(null, Array.from(view))
-      return parseCSV(text)
-    } catch {
-      return []
-    }
-  }
+  const [contactsFile, setContactsFile] = useState<File | null>(campaign.contactsFile || null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [extractedContacts, setExtractedContacts] = useState<Contact[]>([])
+  const [contactCount, setContactCount] = useState(0)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(e.type === 'dragenter' || e.type === 'dragover')
+  }
+
+  const uploadContacts = async (fileToUpload: File) => {
+    if (!campaign.campaignId) {
+      setError('Campaign ID not found. Please go back and try again.')
+      return false
+    }
+
+    try {
+      setError('')
+      setIsUploading(true)
+
+      const formData = new FormData()
+      formData.append('contactsFile', fileToUpload)
+
+      console.log('📞 Uploading contacts file to draft campaign...')
+      const res = await fetch(`/api/campaigns/${campaign.campaignId}/contacts`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to upload contacts')
+      }
+
+      const data = await res.json()
+      console.log('✅ Contacts extracted and uploaded successfully', data)
+      
+      // Update the local state with the uploaded filename
+      if (data.fileName) {
+        setContactsFile(new File([fileToUpload], data.fileName, { type: fileToUpload.type }))
+      }
+
+      // Store extracted contacts to display them
+      if (data.contacts && Array.isArray(data.contacts)) {
+        setExtractedContacts(data.contacts)
+        setContactCount(data.count || data.contacts.length)
+      }
+
+      // Save the extracted contacts to the draft
+      console.log('💾 Saving contacts to draft...')
+      const draftRes = await fetch('/api/campaigns/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignId: campaign.campaignId,
+          contactsSummary: {
+            count: data.count || data.contacts?.length || 0,
+            items: data.contacts || [],
+          },
+          contactCount: data.count || data.contacts?.length || 0,
+        }),
+      })
+
+      if (!draftRes.ok) {
+        console.warn('⚠️ Failed to save contacts to draft, but extraction succeeded')
+      } else {
+        console.log('✅ Contacts saved to draft')
+      }
+      
+      return true
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to upload contacts'
+      setError(errorMsg)
+      console.error('Error uploading contacts:', err)
+      return false
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -78,79 +117,13 @@ export default function ContactsPage() {
 
     const file = files[0]
     setContactsFile(file)
-    setContactsSummary(null)
-    setError('')
-    setIsExtracting(true)
+    updateCampaign({ contactsFile: file })
 
-    try {
-      let cid = campaignId
-
-      // Create campaign if it doesn't exist yet
-      if (!cid) {
-        console.log('📝 Creating campaign first...')
-        const createRes = await fetch('/api/campaigns', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: campaign.title,
-            description: campaign.description,
-            channels: campaign.channels,
-            toneOfVoice: campaign.toneOfVoice,
-          }),
-        })
-
-        if (!createRes.ok) {
-          throw new Error('Failed to create campaign')
-        }
-
-        const { id: newCampaignId } = await createRes.json()
-        cid = newCampaignId
-        setCampaignId(newCampaignId)
-        updateCampaign({ campaignId: newCampaignId })
-        console.log('✅ Campaign created:', newCampaignId)
-      }
-
-      // 1) Upload file via /files route
-      console.log('📤 Uploading contacts file:', file.name)
-      const formData = new FormData()
-      formData.append('contactsFile', file)
-
-      const uploadRes = await fetch(`/api/campaigns/${cid}/files`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload contacts file')
-      }
-
-      console.log('✅ File uploaded')
-
-      // 2) Trigger extraction
-      console.log('📞 Extracting contacts...')
-      const extractRes = await fetch(`/api/campaigns/${cid}/contacts`, {
-        method: 'POST',
-      })
-
-      if (!extractRes.ok) {
-        throw new Error('Failed to extract contacts')
-      }
-
-      console.log('✅ Contacts extracted')
-
-      // 3) Fetch updated campaign to get contactsSummary
-      console.log('🔄 Fetching updated campaign...')
-      const campaignRes = await fetch(`/api/campaigns/${cid}`)
-      if (campaignRes.ok) {
-        const campaignData = await campaignRes.json()
-        setContactsSummary(campaignData.campaign.contactsSummary || null)
-        console.log('✅ Summary loaded:', campaignData.campaign.contactsSummary?.count, 'contacts')
-      }
-    } catch (err) {
-      console.error('Error extracting contacts:', err)
-      setError(err instanceof Error ? err.message : 'Failed to process contacts file')
-    } finally {
-      setIsExtracting(false)
+    // Upload immediately
+    const uploaded = await uploadContacts(file)
+    if (!uploaded) {
+      setContactsFile(null)
+      updateCampaign({ contactsFile: null })
     }
   }
 
@@ -159,95 +132,30 @@ export default function ContactsPage() {
     if (!file) return
 
     setContactsFile(file)
-    setContactsSummary(null)
-    setError('')
-    setIsExtracting(true)
+    updateCampaign({ contactsFile: file })
 
-    try {
-      let cid = campaignId
-
-      // Create campaign if it doesn't exist yet
-      if (!cid) {
-        console.log('📝 Creating campaign first...')
-        const createRes = await fetch('/api/campaigns', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: campaign.title,
-            description: campaign.description,
-            channels: campaign.channels,
-            toneOfVoice: campaign.toneOfVoice,
-          }),
-        })
-
-        if (!createRes.ok) {
-          throw new Error('Failed to create campaign')
-        }
-
-        const { id: newCampaignId } = await createRes.json()
-        cid = newCampaignId
-        setCampaignId(newCampaignId)
-        updateCampaign({ campaignId: newCampaignId })
-        console.log('✅ Campaign created:', newCampaignId)
-      }
-
-      // 1) Upload file via /files route
-      console.log('📤 Uploading contacts file:', file.name)
-      const formData = new FormData()
-      formData.append('contactsFile', file)
-
-      const uploadRes = await fetch(`/api/campaigns/${cid}/files`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadRes.ok) {
-        throw new Error('Failed to upload contacts file')
-      }
-
-      console.log('✅ File uploaded')
-
-      // 2) Trigger extraction
-      console.log('📞 Extracting contacts...')
-      const extractRes = await fetch(`/api/campaigns/${cid}/contacts`, {
-        method: 'POST',
-      })
-
-      if (!extractRes.ok) {
-        throw new Error('Failed to extract contacts')
-      }
-
-      console.log('✅ Contacts extracted')
-
-      // 3) Fetch updated campaign to get contactsSummary
-      console.log('🔄 Fetching updated campaign...')
-      const campaignRes = await fetch(`/api/campaigns/${cid}`)
-      if (campaignRes.ok) {
-        const campaignData = await campaignRes.json()
-        setContactsSummary(campaignData.campaign.contactsSummary || null)
-        console.log('✅ Summary loaded:', campaignData.campaign.contactsSummary?.count, 'contacts')
-      }
-    } catch (err) {
-      console.error('Error extracting contacts:', err)
-      setError(err instanceof Error ? err.message : 'Failed to process contacts file')
-    } finally {
-      setIsExtracting(false)
+    // Upload immediately
+    const uploaded = await uploadContacts(file)
+    if (!uploaded) {
+      setContactsFile(null)
+      updateCampaign({ contactsFile: null })
     }
   }
 
-  const handleContinue = async () => {
-    if (!campaignId) {
-      setError('Campaign ID not found')
+  const handleContinue = () => {
+    if (!contactsFile) {
+      setError('Please upload a contacts file')
       return
     }
 
-    if (!contactsSummary || contactsSummary.count === 0) {
-      setError('Please upload and extract contacts first')
-      return
-    }
+    router.push('/campaign/preview')
+  }
 
-    // Just navigate to preview - extraction already happened
-    router.push(`/campaign/preview?campaignId=${campaignId}`)
+  const removeContactsFile = () => {
+    setContactsFile(null)
+    setExtractedContacts([])
+    setContactCount(0)
+    updateCampaign({ contactsFile: null })
   }
 
   return (
@@ -294,68 +202,61 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Contacts summary */}
-      <div className="space-y-3">
-        {contactsSummary && contactsSummary.count > 0 ? (
-          <>
-            <button
-              onClick={() => setShowContacts((v) => !v)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-800/60 hover:bg-slate-700/60 text-slate-200 border border-slate-700 transition cursor-pointer"
-            >
-              {showContacts
-                ? `Hide contacts (${contactsSummary.count} detected)`
-                : `Show contacts (${contactsSummary.count} detected)`}
-            </button>
-
-            {showContacts && (
-              <div className="border border-slate-700 rounded-lg p-3 bg-black/40 max-h-64 overflow-y-auto">
-                <ul className="space-y-2">
-                  {contactsSummary.items.map((c, idx) => (
-                    <li
-                      key={`${c.name}-${c.phone}-${idx}`}
-                      className="flex justify-between gap-3 px-2 py-1.5 text-xs bg-black/30 rounded hover:bg-black/50 transition"
-                    >
-                      <span className="text-white/80">{c.name}</span>
-                      <span className="text-white/50 font-mono">{c.phone}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : isExtracting ? (
-          <div className="px-4 py-2.5 rounded-lg text-sm text-slate-400 bg-black/40 border border-slate-700">
-            <span className="inline-block animate-spin mr-2">⟳</span>
-            Extracting contacts from file...
-          </div>
-        ) : loadingContactsSummary ? (
-          <div className="px-4 py-2.5 rounded-lg text-sm text-slate-400 bg-black/40 border border-slate-700">
-            <span className="inline-block animate-spin mr-2">⟳</span>
-            Loading contacts...
-          </div>
-        ) : (
-          <div className="px-4 py-2.5 rounded-lg text-sm text-slate-500 bg-black/40 border border-slate-700">
-            Attach a CSV or Excel file to detect contacts
-          </div>
-        )}
-      </div>
-
       {error && <p className="text-sm text-red-400">{error}</p>}
+
+      {/* Show extracted contacts list */}
+      {extractedContacts.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-3">
+              Extracted Contacts ({contactCount})
+            </h2>
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {extractedContacts.slice(0, 50).map((contact, idx) => (
+                <div
+                  key={idx}
+                  className="px-4 py-3 rounded-lg bg-slate-900/50 border border-slate-700/50 text-sm"
+                >
+                  <p className="text-white font-medium">{contact.name}</p>
+                  <p className="text-slate-300 text-xs mt-0.5">{contact.phone}</p>
+                </div>
+              ))}
+              {extractedContacts.length > 50 && (
+                <p className="text-slate-400 text-xs pt-2">
+                  ...and {extractedContacts.length - 50} more contacts
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {contactsFile && (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={removeContactsFile}
+            disabled={isUploading}
+            className="text-sm text-red-400 hover:text-red-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ✕ Remove file
+          </button>
+        </div>
+      )}
 
       <div className="flex justify-between gap-3 pt-4">
         <button
           onClick={() => router.push('/campaign/assets')}
           className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isExtracting}
+          disabled={isUploading}
         >
           Back
         </button>
         <button
           onClick={handleContinue}
+          disabled={isUploading}
           className="px-6 py-2.5 rounded-lg bg-white hover:bg-white/95 text-black font-semibold transition shadow-[0_4px_12px_rgba(255,255,255,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isExtracting || !contactsSummary || contactsSummary.count === 0}
         >
-          {isExtracting ? '⟳ Extracting contacts...' : 'Continue to preview'}
+          {isUploading ? '⟳ Uploading...' : 'Continue to preview'}
         </button>
       </div>
     </div>

@@ -15,7 +15,7 @@ interface Asset {
 interface LoadedCampaign {
   id: string
   title: string
-  description: string
+  description: string | { original?: string; aiEnhanced?: string }
   channels: ChannelConfig
   toneOfVoice?: string
   assets?: Asset[]
@@ -25,7 +25,19 @@ interface LoadedCampaign {
   aiDescription?: string
   previewText?: string
   transcript?: string
-  contactsFile?: { url: string; publicId: string }
+  contactsFile?: { url: string; publicId: string; name?: string }
+  channelContent?: {
+    voice?: { transcript?: string }
+    calls?: { transcript?: string }
+  }
+  audioUrls?: {
+    voice?: string
+    calls?: string
+  }
+  audioPublicIds?: {
+    voice?: string
+    calls?: string
+  }
 }
 
 export default function CampaignDetailPage() {
@@ -36,16 +48,6 @@ export default function CampaignDetailPage() {
   const [loadedCampaign, setLoadedCampaign] = useState<LoadedCampaign | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [isEditing, setIsEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const [draft, setDraft] = useState({
-    title: '',
-    description: '',
-    previewText: '',
-    assets: [] as Asset[],
-    contactsFile: null as any,
-  })
 
   useEffect(() => {
     const loadCampaign = async () => {
@@ -56,29 +58,27 @@ export default function CampaignDetailPage() {
           return
         }
 
+        console.log('📡 Fetching campaign from API:', campaignId)
+
+        // Use API endpoint instead of client SDK
         const response = await fetch(`/api/campaigns/${campaignId}`)
         const data = await response.json()
 
         if (response.ok) {
-          setLoadedCampaign(data.campaign)
-          console.log('📊 Campaign loaded:', {
-            description: data.campaign.description?.substring?.(0, 50),
-            aiDescription: data.campaign.aiDescription?.substring?.(0, 50),
-            previewText: data.campaign.previewText?.substring?.(0, 50),
-          })
-          setDraft({
+          console.log('✅ Campaign loaded from API:', {
             title: data.campaign.title,
-            description: data.campaign.description,
-            previewText: data.campaign.previewText || '',
-            assets: data.campaign.assets || [],
-            contactsFile: data.campaign.contactsFile || null,
+            hasChannelContent: !!data.campaign.channelContent,
+            channelContent: data.campaign.channelContent,
+            audioUrls: data.campaign.audioUrls,
           })
+
+          setLoadedCampaign(data.campaign)
         } else {
           setError(data.error || 'Failed to load campaign')
         }
       } catch (err) {
-        console.error('Error loading campaign:', err)
-        setError('Failed to load campaign')
+        console.error('❌ Error loading campaign:', err)
+        setError(`Failed to load campaign: ${err instanceof Error ? err.message : String(err)}`)
       } finally {
         setLoading(false)
       }
@@ -86,67 +86,6 @@ export default function CampaignDetailPage() {
 
     loadCampaign()
   }, [campaignId])
-
-  const handleSave = async () => {
-    try {
-      setSaving(true)
-      const response = await fetch(`/api/campaigns/${campaignId}/preview`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: draft.title,
-          description: draft.description,
-          previewText: draft.previewText,
-          assets: draft.assets,
-          contactsFileAction: draft.contactsFile === null ? 'remove' : undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        setError(data.error || 'Failed to save changes')
-        return
-      }
-
-      // Update loaded campaign with draft values
-      if (loadedCampaign) {
-        setLoadedCampaign({
-          ...loadedCampaign,
-          title: draft.title,
-          description: draft.description,
-          assets: draft.assets,
-        })
-      }
-
-      setIsEditing(false)
-    } catch (err) {
-      console.error('Error saving campaign:', err)
-      setError('Failed to save changes')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const removeAsset = (index: number) => {
-    setDraft((prev) => ({
-      ...prev,
-      assets: prev.assets.filter((_, i) => i !== index),
-    }))
-  }
-
-  const addAssets = (files: File[]) => {
-    const MAX_FILE_SIZE = 10 * 1024 * 1024
-    const oversized = files.filter((f) => f.size > MAX_FILE_SIZE)
-    if (oversized.length > 0) {
-      setError(`${oversized.length} file(s) exceed 10MB limit`)
-      return
-    }
-
-    // In a real app, you'd upload these first
-    // For now, just show that new files would be added
-    console.log('New files to upload:', files)
-    setError('')
-  }
 
   if (loading) {
     return (
@@ -224,16 +163,22 @@ export default function CampaignDetailPage() {
           <div>
             <p className="text-xs text-white/50 mb-2">Original Description</p>
             <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
-              {loadedCampaign.description || 'No description provided'}
+              {(typeof loadedCampaign.description === 'object' 
+                ? loadedCampaign.description?.original 
+                : loadedCampaign.description) || 'No description provided'}
             </p>
           </div>
 
           {/* AI Description */}
-          {loadedCampaign.aiDescription && (
+          {(typeof loadedCampaign.description === 'object' 
+            ? loadedCampaign.description?.aiEnhanced 
+            : loadedCampaign.aiDescription) && (
             <div>
               <p className="text-xs text-white/50 mb-2">AI-Enhanced Description</p>
               <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">
-                {loadedCampaign.aiDescription}
+                {(typeof loadedCampaign.description === 'object' 
+                  ? loadedCampaign.description?.aiEnhanced 
+                  : loadedCampaign.aiDescription)}
               </p>
             </div>
           )}
@@ -262,6 +207,46 @@ export default function CampaignDetailPage() {
               )}
             </div>
           </div>
+
+          {/* Voice Message Transcript */}
+          {loadedCampaign.channels.voice?.enabled && loadedCampaign.channelContent?.voice?.transcript && (
+            <div>
+              <p className="text-xs text-white/50 mb-2">🎙️ Voice Message Script</p>
+              <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 border border-white/10 rounded-lg p-3">
+                {loadedCampaign.channelContent.voice.transcript}
+              </p>
+              {loadedCampaign.audioUrls?.voice && (
+                <div className="mt-3">
+                  <p className="text-xs text-white/50 mb-2">🎵 Voice Audio</p>
+                  <audio
+                    controls
+                    src={loadedCampaign.audioUrls.voice}
+                    className="w-full bg-black/30 rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Call Script */}
+          {loadedCampaign.channels.calls?.enabled && loadedCampaign.channelContent?.calls?.transcript && (
+            <div>
+              <p className="text-xs text-white/50 mb-2">☎️ Call Script</p>
+              <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap bg-black/30 border border-white/10 rounded-lg p-3">
+                {loadedCampaign.channelContent.calls.transcript}
+              </p>
+              {loadedCampaign.audioUrls?.calls && (
+                <div className="mt-3">
+                  <p className="text-xs text-white/50 mb-2">☎️ Call Audio</p>
+                  <audio
+                    controls
+                    src={loadedCampaign.audioUrls.calls}
+                    className="w-full bg-black/30 rounded-lg"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Preview Text */}
           {/* {loadedCampaign.previewText && (
@@ -298,8 +283,17 @@ export default function CampaignDetailPage() {
             <div>
               <p className="text-xs text-white/50 mb-2">Contacts File</p>
               <div className="px-4 py-3 rounded-lg bg-black/30 border border-white/10 flex items-center justify-between">
-                <span className="text-white/80 text-sm">📄 Contacts uploaded</span>
-                <span className="text-xs text-white/60">({loadedCampaign.contactCount} contacts)</span>
+                <div>
+                  <span className="text-white/80 text-sm block">📄 {loadedCampaign.contactsFile?.name || 'Contacts uploaded'}</span>
+                  <span className="text-xs text-white/60">({loadedCampaign.contactCount} contacts)</span>
+                </div>
+                <a
+                  href={`/api/campaigns/${campaignId}/contacts/download`}
+                  download
+                  className="px-4 py-2 rounded-lg bg-blue-500/30 hover:bg-blue-500/50 text-blue-300 text-sm font-medium transition cursor-pointer"
+                >
+                  ⬇️ Download
+                </a>
               </div>
             </div>
           )}

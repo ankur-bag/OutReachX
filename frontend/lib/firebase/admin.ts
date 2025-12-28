@@ -18,4 +18,8 @@ if (!admin.apps.length) {
   });
 }
 
-export const db = admin.firestore();
+export const db = admin.firestore()
+
+const projectId = process.env.FIREBASE_PROJECT_ID
+const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`
+export const bucket = admin.storage().bucket(bucketName);

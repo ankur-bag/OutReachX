@@ -37,14 +37,30 @@ export async function GET(
       );
     }
 
-    const campaignData = campaignSnapshot.data();
+    const campaignData = campaignSnapshot.data() as any;
+
+    // 🔥 FIX: Explicit nested map extraction
+    const channelContent = {
+      voice: { 
+        transcript: campaignData.channelContent?.voice?.transcript || '' 
+      },
+      calls: { 
+        transcript: campaignData.channelContent?.calls?.transcript || '' 
+      }
+    };
+
+    const audioUrls = {
+      voice: campaignData.audioUrls?.voice || '',
+      calls: campaignData.audioUrls?.calls || ''
+    };
 
     return NextResponse.json(
       {
-        success: true,
-        campaign: {
+        campaign: {  
           id: campaignId,
           ...campaignData,
+          channelContent,        // ← FIXED!
+          audioUrls,             // ← FIXED!
           createdAt: campaignData?.createdAt?.toDate?.() || new Date(),
           updatedAt: campaignData?.updatedAt?.toDate?.() || new Date(),
         },

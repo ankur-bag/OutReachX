@@ -3,8 +3,6 @@ import { auth } from '@clerk/nextjs/server'
 import { db } from '@/lib/firebase/admin'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-
 type Ctx = { params: Promise<{ campaignId: string }> }
 
 export async function POST(request: NextRequest, { params }: Ctx) {
@@ -15,9 +13,6 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
 
     const { campaignId } = await params
-    const { wordLimit, tone, emotion } = await request.json()
-
-    console.log('🤖 Generating AI description for campaign:', campaignId)
 
     const ref = db
       .collection('users')
@@ -31,41 +26,71 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
 
     const data = snap.data() || {}
-    const originalDescription = data.description || ''
+    let description = data.description || ''
+    let originalDescription = ''
+
+    // Handle both old (string) and new (object with original/aiEnhanced) formats
+    if (typeof description === 'object' && description !== null) {
+      originalDescription = description.original || ''
+      description = originalDescription || description.aiEnhanced || ''
+    } else if (typeof description === 'string') {
+      originalDescription = description
+    }
+
     const title = data.title || ''
-    const onboarding = data.onboarding || {}
+    const toneOfVoice = data.toneOfVoice || 'professional'
+    const wordLimit = data.wordLimit || 160
 
-    const prompt = `You are an expert marketing copywriter specializing in outreach campaigns.
+    if (!description) {
+      return NextResponse.json(
+        { error: 'Campaign must have a description to enhance' },
+        { status: 400 }
+      )
+    }
 
-Your task: Rewrite the following campaign description to be more compelling and effective for marketing outreach.
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      console.error('Missing GEMINI_API_KEY')
+      return NextResponse.json(
+        { error: 'AI service not configured' },
+        { status: 500 }
+      )
+    }
 
-**Original Description:**
-"${originalDescription}"
+    console.log('🤖 Generating AI description for campaign:', campaignId)
+
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+    const prompt = `You are an expert marketing copywriter specializing in WhatsApp outreach campaigns.
+
+Your task: Enhance and refine this campaign description to be more compelling and engaging.
 
 **Campaign Title:**
 "${title}"
 
-**Onboarding Context:**
-${JSON.stringify(onboarding, null, 2)}
+**Original Description:**
+"${description}"
 
-**Constraints:**
-- Tone: ${tone || 'professional and friendly'}
-- Emotion to evoke: ${emotion || 'trust and excitement'}
-- Word limit: ${wordLimit || 200} words maximum
-- Make it persuasive and action-oriented
-- Keep the core message but enhance it
+**Requirements:**
+- Tone: ${toneOfVoice}
+- Max word limit: ${wordLimit} words
+- Make it more persuasive and action-oriented
+- Keep the core message but make it more impactful
+- Suitable for WhatsApp marketing
+- Return ONLY the enhanced description, no markdown, no extra formatting`
 
-**Output:**
-Return ONLY the refined description text, no markdown, no headings, no extra formatting.`
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
     const result = await model.generateContent(prompt)
-    const aiDescription = result.response.text()
+    const aiDescription = result.response.text().trim()
 
     console.log('✅ AI description generated, saving to Firestore...')
 
     await ref.set(
       {
+        description: {
+          original: originalDescription,
+          aiEnhanced: aiDescription,
+        },
         aiDescription,
         previewText: aiDescription,
         updatedAt: new Date(),
@@ -75,7 +100,7 @@ Return ONLY the refined description text, no markdown, no headings, no extra for
 
     console.log('💾 Saved to Firestore')
 
-    return NextResponse.json({ success: true, aiDescription })
+    return NextResponse.json({ success: true, aiDescription, previewText: aiDescription })
   } catch (error) {
     console.error('❌ Description AI error:', error)
     return NextResponse.json(

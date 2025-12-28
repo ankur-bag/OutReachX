@@ -34,33 +34,51 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
 
     const data = snap.data() || {}
-    const contactsFile = data.contactsFile
+    
+    // Get FormData from request (if file is being uploaded directly)
+    const formData = await request.formData()
+    const uploadedFile = formData.get('contactsFile') as File | null
+    
+    let buffer: Buffer
+    let fileName: string = 'contacts'
 
-    if (!contactsFile?.url) {
-      return NextResponse.json(
-        { error: 'No contacts file uploaded' },
-        { status: 400 }
-      )
+    if (uploadedFile) {
+      // File is being uploaded directly in this request
+      console.log('📥 Processing uploaded file:', uploadedFile.name)
+      fileName = uploadedFile.name
+      const arrayBuffer = await uploadedFile.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
+    } else {
+      // File should already be in Firestore
+      const contactsFile = data.contactsFile
+
+      if (!contactsFile?.url) {
+        return NextResponse.json(
+          { error: 'No contacts file uploaded' },
+          { status: 400 }
+        )
+      }
+
+      console.log('📥 Downloading file from:', contactsFile.url)
+      fileName = contactsFile.name || 'contacts'
+
+      // Download file from Cloudinary
+      const res = await fetch(contactsFile.url)
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: 'Failed to download contacts file' },
+          { status: 400 }
+        )
+      }
+
+      const arrayBuffer = await res.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
     }
-
-    console.log('📥 Downloading file from:', contactsFile.url)
-
-    // Download file from Cloudinary
-    const res = await fetch(contactsFile.url)
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: 'Failed to download contacts file' },
-        { status: 400 }
-      )
-    }
-
-    const arrayBuffer = await res.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     let rows: any[] = []
 
     // Determine file type and parse accordingly
-    if (contactsFile.url.toLowerCase().includes('.csv')) {
+    if (fileName.toLowerCase().includes('.csv')) {
       console.log('📄 Parsing as CSV...')
       const text = buffer.toString('utf8')
       const parsed = Papa.parse(text, {
@@ -138,22 +156,37 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
     console.log(`✅ Extracted ${count} contacts`)
 
-    // Save to Firestore
-    await ref.set(
-      {
-        contactsSummary: {
-          count,
-          items: contacts,
-        },
-        contactCount: count,
-        updatedAt: new Date(),
+    // Prepare data to save
+    const updateData: any = {
+      contactsSummary: {
+        count,
+        items: contacts,
       },
-      { merge: true }
-    )
+      contactCount: count,
+      updatedAt: new Date(),
+    }
+
+    // If file was uploaded directly, store its metadata
+    if (uploadedFile) {
+      updateData.contactsFile = {
+        name: uploadedFile.name,
+        size: uploadedFile.size,
+        type: uploadedFile.type,
+        uploadedAt: new Date(),
+      }
+    }
+
+    // Save to Firestore
+    await ref.set(updateData, { merge: true })
 
     console.log('💾 Saved contact summary to Firestore')
 
-    return NextResponse.json({ success: true, count, contacts })
+    return NextResponse.json({
+      success: true,
+      count,
+      contacts,
+      fileName: uploadedFile?.name || fileName,
+    })
   } catch (error) {
     console.error('❌ Contacts parse error:', error)
     return NextResponse.json(

@@ -6,6 +6,12 @@ export interface ChannelConfig {
   text?: { enabled: boolean; wordLimit?: number }
   voice?: { enabled: boolean; maxDurationSeconds?: number }
   calls?: { enabled: boolean; maxCallDurationSeconds?: number }
+  whatsapp?: { enabled: boolean; wordLimit?: number }
+}
+
+export interface ChannelContent {
+  voice?: { transcript: string }
+  calls?: { script: string }
 }
 
 export interface CampaignData {
@@ -17,6 +23,9 @@ export interface CampaignData {
   assets: File[]
   contacts: { name: string; phone: string }[]
   contactsFile?: File | null
+  aiDescription?: string
+  previewText?: string
+  channelContent?: ChannelContent
 }
 
 interface CampaignContextType {
@@ -36,6 +45,9 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     assets: [],
     contacts: [],
     contactsFile: null,
+    aiDescription: undefined,
+    previewText: undefined,
+    channelContent: {},
   })
 
   const updateCampaign = (updates: Partial<CampaignData>) => {
@@ -48,7 +60,6 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     </CampaignContext.Provider>
   )
 }
-
 export const useCampaign = () => {
   const context = useContext(CampaignContext)
   if (!context) {
