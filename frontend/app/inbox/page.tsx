@@ -85,7 +85,7 @@ export default function InboxPage() {
     return (
       <div className='h-screen bg-white text-gray-900 flex flex-col'>
         <div className='border-b border-gray-300 p-4'>
-          <a href="/title" className='text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer'>
+          <a href="/campaign/title" className='text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer'>
             Back
           </a>
         </div>
@@ -103,7 +103,7 @@ export default function InboxPage() {
     <div className='h-screen bg-white text-gray-900 flex flex-col overflow-hidden'>
       <div className='border-b border-gray-300 p-4 shrink-0'>
         <button
-          onClick={() => router.push('/title')}
+          onClick={() => router.push('/campaign/title')}
           className='text-xl font-medium text-black px-2 py-1.5 border-2 border-black rounded-xl hover:bg-black/10 transition cursor-pointer'
         >
           Back

@@ -142,7 +142,7 @@ export default function YourCampaignsPage() {
       <div className="max-w-6xl mx-auto px-4 py-12">
         <div className="mb-10 flex items-center justify-between">
           <Link
-            href="/"
+            href="/campaign/title"
             className="px-4 py-2 rounded-lg border border-white/30 text-white hover:bg-white/5 transition cursor-pointer"
           >
             ← Back
