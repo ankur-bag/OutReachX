@@ -8,6 +8,9 @@ export interface OnboardingData {
   targetAudience: 'b2c' | 'b2b' | 'both' | ''
   brandStyle: ('professional' | 'friendly' | 'casual' | 'energetic' | 'premium')[]
   responsePreference: 'short' | 'balanced' | 'detailed' | ''
+  language?: 'english' | 'hindi' | ''
+  region?: 'india' | 'global' | ''
+  complianceNotes?: string
   termsAccepted: boolean
 }
 
@@ -20,60 +23,50 @@ interface OnboardingContextType {
   resetOnboarding: () => void
   showModal: boolean
   closeModal: () => void
+  isLoading: boolean
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined)
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const [onboarding, setOnboarding] = useState<OnboardingData>({
     businessType: '',
     targetAudience: '',
     brandStyle: [],
     responsePreference: '',
+    language: '',
+    region: '',
+    complianceNotes: '',
     termsAccepted: false,
   })
 
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [hasInitialized, setHasInitialized] = useState(false)
 
-  // Load onboarding state from localStorage and Clerk metadata
+  // Initialize only once when user loads
   useEffect(() => {
-    if (user && !hasInitialized) {
-      // Check Clerk metadata first for the source of truth
-      const clerkOnboarded = (user.unsafeMetadata as any)?.onboardingCompleted ?? false
+    if (isLoaded && user) {
+      // Check if user completed onboarding from Clerk metadata
+      const onboardingComplete = (user.unsafeMetadata as any)?.onboardingComplete ?? false
       
-      if (clerkOnboarded) {
-        // If completed in Clerk, load the saved data from localStorage
-        const savedData = localStorage.getItem(`onboarding_${user.id}`)
-        if (savedData) {
-          try {
-            setOnboarding(JSON.parse(savedData))
-          } catch (error) {
-            console.error('Failed to parse saved onboarding data:', error)
-          }
-        }
+      if (onboardingComplete) {
+        // User has completed onboarding before
         setIsOnboardingCompleted(true)
         setShowModal(false)
       } else {
-        // If not completed, load any draft data from localStorage and show modal
-        const savedData = localStorage.getItem(`onboarding_${user.id}`)
-        if (savedData) {
-          try {
-            setOnboarding(JSON.parse(savedData))
-          } catch (error) {
-            console.error('Failed to parse saved onboarding data:', error)
-          }
-        }
+        // User hasn't completed onboarding yet, show the modal
         setIsOnboardingCompleted(false)
         setShowModal(true)
       }
+      
       setIsLoading(false)
-      setHasInitialized(true)
+    } else if (isLoaded && !user) {
+      // User not signed in
+      setIsLoading(false)
     }
-  }, [user?.id, hasInitialized])
+  }, [isLoaded, user?.id]) // Only depend on isLoaded and user.id, not entire user object
 
   const updateOnboarding = (updates: Partial<OnboardingData>) => {
     setOnboarding((prev) => ({ ...prev, ...updates }))
@@ -81,26 +74,41 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const saveOnboarding = async () => {
     if (user) {
-      // Save to localStorage
-      localStorage.setItem(`onboarding_${user.id}`, JSON.stringify(onboarding))
-
-      // Update Clerk metadata to mark onboarding as completed
       try {
+        // Save to API route (which will use Admin SDK)
+        const response = await fetch('/api/onboarding', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(onboarding),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to save onboarding')
+        }
+
+        // Update Clerk metadata to mark onboarding as completed
         await user.update({
           unsafeMetadata: {
-            onboardingCompleted: true,
+            ...(user.unsafeMetadata || {}),
+            onboardingComplete: true,
           },
         })
+        
+        // Reload user to get updated metadata
+        await user.reload()
+        
         setIsOnboardingCompleted(true)
         setShowModal(false)
       } catch (error) {
-        console.error('Failed to save onboarding to Clerk:', error)
-        // Even if Clerk update fails, mark as completed locally and close
-        setIsOnboardingCompleted(true)
-        setShowModal(false)
+        console.error('Failed to save onboarding:', error)
+        throw error
       }
     }
   }
+
 
   const resetOnboarding = () => {
     setOnboarding({
@@ -108,12 +116,23 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       targetAudience: '',
       brandStyle: [],
       responsePreference: '',
+      language: '',
+      region: '',
+      complianceNotes: '',
       termsAccepted: false,
     })
     setIsOnboardingCompleted(false)
     setShowModal(true)
+    
     if (user) {
-      localStorage.removeItem(`onboarding_${user.id}`)
+      user.update({
+        unsafeMetadata: {
+          ...user.unsafeMetadata,
+          onboardingComplete: false,
+        },
+      }).catch((error) => {
+        console.error('Failed to reset onboarding in Clerk:', error)
+      })
     }
   }
 
@@ -132,6 +151,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         resetOnboarding,
         showModal,
         closeModal,
+        isLoading,
       }}
     >
       {children}
