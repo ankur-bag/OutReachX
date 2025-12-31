@@ -71,7 +71,7 @@ export default function AssetsPage() {
     setDragActive(false)
 
     const files = Array.from(e.dataTransfer.files).filter((file) =>
-      ['image/png', 'image/jpeg', 'video/mp4', 'video/quicktime'].includes(file.type)
+      ['image/png', 'image/jpeg', 'video/mp4', 'video/quicktime', 'application/pdf'].includes(file.type)
     )
     
     // Check file sizes
@@ -114,7 +114,7 @@ export default function AssetsPage() {
 
     // Update context and continue
     updateCampaign({ assets })
-    router.push('/campaign/contacts')
+    router.push('/campaign/docs')
   }
 
   return (
@@ -145,13 +145,13 @@ export default function AssetsPage() {
               <input
                 type="file"
                 multiple
-                accept="image/png,image/jpeg,video/mp4,video/quicktime"
+                accept="image/png,image/jpeg,video/mp4,video/quicktime,.pdf"
                 onChange={handleFileInput}
                 className="hidden"
               />
             </label>
           </div>
-          <p className="text-xs text-white/50">PNG, JPG, MP4, MOV up to 10MB each</p>
+          <p className="text-xs text-white/50">PNG, JPG, MP4, MOV, PDF up to 10MB each</p>
         </div>
       </div>
 
@@ -165,7 +165,7 @@ export default function AssetsPage() {
             {assets.map((file, idx) => (
               <div key={`asset-${idx}`} className="flex items-center justify-between bg-blue-900/30 border border-blue-500/40 rounded-lg p-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-lg">{file.type.startsWith('image') ? '🖼️' : '🎬'}</span>
+                  <span className="text-lg">{file.type.startsWith('image') ? '🖼️' : file.type.startsWith('video') ? '🎬' : '📄'}</span>
                   <span className="text-sm text-white/80 truncate">{file.name}</span>
                 </div>
                 <button

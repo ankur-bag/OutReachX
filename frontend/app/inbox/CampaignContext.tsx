@@ -3,6 +3,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useAuth } from '@clerk/nextjs'
 
+export interface Asset {
+  url: string
+  publicId: string
+  type: 'image' | 'video'
+}
+
 interface Contact {
   id: string
   name: string
@@ -13,11 +19,13 @@ interface Contact {
   profilePic?: string
 }
 
-interface CampaignDetails {
+export interface CampaignDetails {
   title: string
+  description?: string | { original?: string; aiEnhanced?: string }
+  aiDescription?: string
   previewText?: string
   audioUrls?: { voice?: string }
-  assets?: any[]
+  assets?: Asset[]
 }
 
 interface CampaignContextType {
@@ -84,3 +92,5 @@ export const useCampaignContext = () => {
   }
   return context
 }
+
+export type { Contact }

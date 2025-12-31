@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter, useParams } from 'next/navigation'
-import { useCampaignContext } from '../../CampaignContext'
+import { useCampaignContext, Asset } from '../../CampaignContext'
 
 interface Message {
   id: string
@@ -12,7 +12,7 @@ interface Message {
   content: string
   timestamp: string
   audioUrl?: string
-  assets?: any[]
+  assets?: Asset[]
 }
 
 interface Contact {
@@ -27,9 +27,10 @@ interface Contact {
 
 interface CampaignDetails {
   title: string
+  aiDescription?: string
   previewText?: string
   audioUrls?: { voice?: string }
-  assets?: any[]
+  assets?: Asset[]
 }
 
 const WhatsAppInbox = () => {
@@ -47,10 +48,15 @@ const WhatsAppInbox = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [messages, setMessages] = useState<Record<string, Message[]>>({})
   const [inputValue, setInputValue] = useState('')
+  const [selectedAsset, setSelectedAsset] = useState<{url: string; type: 'image'|'video'} | null>(null)
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null)
+  const [audioDuration, setAudioDuration] = useState<{[key: string]: number}>({})
+  const [audioCurrentTime, setAudioCurrentTime] = useState<{[key: string]: number}>({})
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const audioRefs = useRef<{[key: string]: HTMLAudioElement | null}>({})
 
   // Memoized derived values
   const selectedContact = useMemo(
@@ -75,10 +81,27 @@ const WhatsAppInbox = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom()
-  }, [selectedMessages, scrollToBottom])
+  // Build campaign message with title, AI description, audio, and assets in order
+  const buildCampaignMessage = useCallback(() => {
+    const parts: string[] = []
+    
+    // 1. Title
+    if (campaignDetails?.title) parts.push(campaignDetails.title)
+    
+    // 2. AI description or fallback to preview text
+    const desc = campaignDetails?.aiDescription || campaignDetails?.previewText
+    if (desc) parts.push(desc)
+    
+    // Join text parts with blank lines
+    const textMessage = parts.join('\n\n')
+    
+    // Return structured message: title + description as message, audio URL, assets separately
+    return {
+      message: textMessage,
+      audioUrl: campaignDetails?.audioUrls?.voice,
+      assets: campaignDetails?.assets
+    }
+  }, [campaignDetails])
 
   // Fetch campaign data on mount
   useEffect(() => {
@@ -144,12 +167,19 @@ const WhatsAppInbox = () => {
     scrollToBottom()
   }, [selectedMessages, scrollToBottom])
 
-
   // Send message to Firestore
   const handleSendMessage = useCallback(async () => {
-    if (!inputValue.trim() || !selectedContactId || !campaignId) return
+    if (!selectedContactId || !campaignId) return
 
-    const messageContent = inputValue
+    let payload
+    
+    // CAMPAIGN ORDER: Use campaign data if no user input, otherwise use typed message
+    if (!inputValue.trim()) {
+      payload = buildCampaignMessage() // Title + AI desc + audio + assets
+    } else {
+      payload = { message: inputValue } // User typed message
+    }
+
     setInputValue('')
 
     try {
@@ -158,7 +188,7 @@ const WhatsAppInbox = () => {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: messageContent })
+          body: JSON.stringify(payload)
         }
       )
 
@@ -201,9 +231,9 @@ const WhatsAppInbox = () => {
       }, 1500)
     } catch (error) {
       console.error('Error sending message:', error)
-      setInputValue(messageContent) // Restore input on error
+      setInputValue(payload.message || '') // Restore input on error
     }
-  }, [inputValue, selectedContactId, campaignId])
+  }, [inputValue, selectedContactId, campaignId, scrollToBottom, buildCampaignMessage])
 
   // Delete message
   const handleDeleteMessage = useCallback((messageId: string) => {
@@ -218,7 +248,7 @@ const WhatsAppInbox = () => {
   return (
     <div className='h-screen bg-[#f0f2f5] flex flex-col overflow-hidden'>
       {/* Top Bar */}
-      <div className='bg-[#00a884] p-4 flex items-center gap-4 shrink-0'>
+      <div className='bg-[#00a884] p-4 flex items-center gap-4 shrink-0 cursor-pointer'>
         <button
           onClick={() => router.push('/inbox')}
           className='p-2 rounded-full hover:bg-[#00917a] text-white transition-colors'
@@ -343,30 +373,135 @@ const WhatsAppInbox = () => {
                           ? 'bg-[#d9fdd3] text-[#111b21] rounded-br-none'
                           : 'bg-white text-[#111b21] rounded-bl-none'
                         }`}>
-                        <p className='text-[14.2px] leading-[19px] whitespace-pre-wrap break-words'>{message.content}</p>
+                        {/* Text Content */}
+                        {message.content && (
+                          <p className='text-[14.2px] leading-[19px] whitespace-pre-wrap break-words'>{message.content}</p>
+                        )}
 
-                        {/* Assets */}
-                        {Array.isArray(message.assets) && message.assets.length > 0 && (
-                          <div className='mt-2 grid grid-cols-2 gap-1'>
-                            {message.assets.slice(0, 4).map((asset: any, i: number) => (
-                              asset.type === 'image' && (
-                                <img
-                                  key={i}
-                                  src={asset.url}
-                                  alt={`Asset ${i + 1}`}
-                                  className='w-full h-32 object-cover rounded'
-                                />
-                              )
-                            ))}
+                        {/* Voice Message - WhatsApp Style with Playback */}
+                        {message.audioUrl && (
+                          <div className='mt-2 w-full'>
+                            {/* Hidden real audio player */}
+                            <audio
+                              ref={(el) => {
+                                if (el) audioRefs.current[message.id] = el
+                              }}
+                              src={message.audioUrl}
+                              preload='metadata'
+                              className='hidden'
+                              onEnded={() => setPlayingMessageId(null)}
+                              onLoadedMetadata={(e) => {
+                                const audio = e.currentTarget
+                                setAudioDuration(prev => ({
+                                  ...prev,
+                                  [message.id]: audio.duration
+                                }))
+                              }}
+                              onTimeUpdate={(e) => {
+                                const audio = e.currentTarget
+                                setAudioCurrentTime(prev => ({
+                                  ...prev,
+                                  [message.id]: audio.currentTime
+                                }))
+                              }}
+                            />
+                            
+                            {/* WhatsApp Voice Message UI */}
+                            <div 
+                              className={`p-1 rounded-2xl flex items-center gap-2 cursor-pointer hover:bg-opacity-90 transition-all max-w-xl ${
+                                isRight ? 'bg-[#d9fdd3] rounded-br-none ml-auto' : 'bg-white rounded-bl-none'
+                              }`}
+                              onClick={() => {
+                                const audio = audioRefs.current[message.id]
+                                if (playingMessageId === message.id) {
+                                  audio?.pause()
+                                  setPlayingMessageId(null)
+                                } else {
+                                  // Pause other audios
+                                  Object.values(audioRefs.current).forEach(a => a?.pause())
+                                  audio?.play()
+                                  setPlayingMessageId(message.id)
+                                }
+                              }}
+                            >
+                              {/* Waveform - Wider bars */}
+                              <div className='flex items-center gap-0.5 flex-shrink-0'>
+                                <div className='w-2 h-8 bg-[#667781]/60 rounded-full'></div>
+                                <div className='w-2 h-10 bg-[#667781]/80 rounded-full'></div>
+                                <div className='w-2 h-8 bg-[#667781] rounded-full'></div>
+                                <div className='w-2 h-12 bg-[#667781] rounded-full'></div>
+                                <div className='w-2 h-9 bg-[#667781]/90 rounded-full'></div>
+                              </div>
+                              
+                              {/* Progress + Play */}
+                              <div className='flex items-center gap-2 flex-1 min-w-0'>
+                                {/* Play/Pause Icon */}
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                                  playingMessageId === message.id 
+                                    ? 'bg-[#00a884]/30' 
+                                    : 'bg-[#00a884]/20 hover:bg-[#00a884]/30'
+                                }`}>
+                                  {playingMessageId === message.id ? (
+                                    <svg className='w-10 h-4 text-[#00a884]' fill='currentColor' viewBox='0 0 20 20'>
+                                      <path fillRule='evenodd' d='M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z'/>
+                                    </svg>
+                                  ) : (
+                                    <svg className='w-10 h-4 text-[#00a884]' fill='currentColor' viewBox='0 0 20 20'>
+                                      <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z'/>
+                                    </svg>
+                                  )}
+                                </div>
+                                
+                                {/* Progress Bar - Much Wider */}
+                                <div className='flex-1 min-w-0'>
+                                  <div className='h-2 bg-[#e9edef] rounded-full overflow-hidden'>
+                                    <div 
+                                      className={`h-full rounded-full transition-all bg-[#00a884] ${playingMessageId === message.id ? 'animate-pulse' : ''}`}
+                                      style={{
+                                        width: `${audioDuration[message.id] ? (audioCurrentTime[message.id] / audioDuration[message.id]) * 100 : 0}%`
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <div className='flex justify-between items-center gap-1 mt-1'>
+                                    <p className='text-xs text-[#667781] font-mono w-10 flex-shrink-0'>
+                                      {Math.floor(audioCurrentTime[message.id] || 0)}:{String(Math.floor((audioCurrentTime[message.id] || 0) * 60) % 60).padStart(2, '0')}
+                                    </p>
+                                    <div className='flex-1'></div>
+                                    <span className='text-xs font-medium text-[#667781] font-mono w-10 flex-shrink-0 text-right'>
+                                      {Math.floor(audioDuration[message.id] || 0)}:{String(Math.floor((audioDuration[message.id] || 0) * 60) % 60).padStart(2, '0')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
 
-                        {/* Voice Message */}
-                        {message.audioUrl && (
-                          <div className='mt-2'>
-                            <audio controls className='w-full max-w-xs h-10'>
-                              <source src={message.audioUrl} type='audio/mpeg' />
-                            </audio>
+                        {/* Asset Grid (max 4 thumbnails) */}
+                        {Array.isArray(message.assets) && message.assets.length > 0 && (
+                          <div className='mt-3 pt-2 border-t border-gray-300'>
+                            <div className='grid gap-1' style={{
+                              gridTemplateColumns: message.assets.length === 1 ? '1fr' : message.assets.length <= 2 ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)'
+                            }}>
+                              {message.assets.slice(0, 4).map((asset: Asset, i: number) => (
+                                <div key={i} className='relative group'>
+                                  {asset.type === 'image' ? (
+                                    <img
+                                      src={asset.url}
+                                      alt={`Asset ${i + 1}`}
+                                      className='w-full h-32 object-cover rounded cursor-pointer transition-opacity group-hover:opacity-75'
+                                      onClick={() => setSelectedAsset({url: asset.url, type: asset.type})}
+                                    />
+                                  ) : (
+                                    <video
+                                      src={asset.url}
+                                      className='w-full h-32 object-cover rounded cursor-pointer transition-opacity group-hover:opacity-75'
+                                      onClick={() => setSelectedAsset({url: asset.url, type: asset.type})}
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
 
@@ -414,7 +549,7 @@ const WhatsAppInbox = () => {
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || !selectedContactId}
+                disabled={!selectedContactId}
                 className='p-2 hover:bg-[#d1d7db] rounded-full text-[#54656f] transition-colors disabled:opacity-50'
               >
                 <svg className='w-6 h-6' fill='currentColor' viewBox='0 0 24 24'>
@@ -425,8 +560,44 @@ const WhatsAppInbox = () => {
           </div>
         </div>
       </div>
+
+      {/* Asset Modal */}
+      {selectedAsset && (
+        <div
+          className='fixed inset-0 bg-black/80 flex items-center justify-center z-50'
+          onClick={() => setSelectedAsset(null)}
+        >
+          <div className='relative max-w-2xl max-h-[90vh] bg-black rounded-lg overflow-hidden' onClick={(e) => e.stopPropagation()}>
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedAsset(null)}
+              className='absolute top-4 right-4 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-2 transition-colors'
+              aria-label='Close'
+            >
+              <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' />
+              </svg>
+            </button>
+
+            {/* Media Content */}
+            {selectedAsset.type === 'image' ? (
+              <img
+                src={selectedAsset.url}
+                alt='Asset preview'
+                className='w-full h-full object-contain'
+              />
+            ) : (
+              <video
+                src={selectedAsset.url}
+                controls
+                autoPlay
+                className='w-full h-full object-contain'
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
-  )
-}
+  )}
 
 export default WhatsAppInbox

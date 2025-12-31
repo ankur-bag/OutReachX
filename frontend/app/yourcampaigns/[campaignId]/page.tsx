@@ -26,6 +26,7 @@ interface LoadedCampaign {
   previewText?: string
   transcript?: string
   contactsFile?: { url: string; publicId: string; name?: string }
+  documents?: { url: string; publicId: string; name: string; extractedText: string; uploadedAt: string }[]
   channelContent?: {
     voice?: { transcript?: string }
     calls?: { transcript?: string }
@@ -277,6 +278,32 @@ export default function CampaignDetailPage() {
               <p className="text-white/40 text-sm">No assets</p>
             )}
           </div>
+
+          {/* Documents */}
+          {loadedCampaign.documents && loadedCampaign.documents.length > 0 && (
+            <div>
+              <p className="text-xs text-white/50 mb-2">📄 Documents</p>
+              <div className="space-y-3">
+                {loadedCampaign.documents.map((doc, idx) => (
+                  <div key={idx} className="px-4 py-3 rounded-lg bg-black/30 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <span className="text-white/80 text-sm block">{doc.name}</span>
+                      <span className="text-xs text-white/60">
+                        {doc.extractedText.length} characters extracted
+                      </span>
+                    </div>
+                    <a
+                      href={doc.url}
+                      download
+                      className="px-4 py-2 rounded-lg bg-blue-500/30 hover:bg-blue-500/50 text-blue-300 text-sm font-medium transition cursor-pointer"
+                    >
+                      ⬇️ Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Contacts File */}
           {loadedCampaign.contactsFile && (

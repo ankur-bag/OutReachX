@@ -10,6 +10,7 @@ const steps = [
   { name: 'Description', path: '/campaign/description' },
   { name: 'Channels', path: '/campaign/channels' },
   { name: 'Assets', path: '/campaign/assets' },
+  { name: 'Docs', path: '/campaign/docs' },
   { name: 'Contacts', path: '/campaign/contacts' },
   { name: 'Preview', path: '/campaign/preview' },
 ]

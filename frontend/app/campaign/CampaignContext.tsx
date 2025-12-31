@@ -23,6 +23,7 @@ export interface CampaignData {
   assets: File[]
   contacts: { name: string; phone: string }[]
   contactsFile?: File | null
+  documents?: { url: string; publicId: string; name: string; extractedText: string; uploadedAt: string }[]
   aiDescription?: string
   previewText?: string
   channelContent?: ChannelContent
@@ -45,6 +46,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     assets: [],
     contacts: [],
     contactsFile: null,
+    documents: [],
     aiDescription: undefined,
     previewText: undefined,
     channelContent: {},

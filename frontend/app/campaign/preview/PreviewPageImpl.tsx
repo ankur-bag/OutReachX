@@ -870,14 +870,37 @@ export default function PreviewPageImpl({ campaignId: propCampaignId, fromCreati
               <div className="space-y-3">
                 <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">{voiceTranscript}</p>
                 {audioChannelLoading === 'voice' ? (
-                  <p className="text-xs text-white/50 italic">🎵 Generating voice audio...</p>
+                  <div className="flex items-center gap-2 text-xs text-blue-400">
+                    <span className="animate-spin">⟳</span> Generating audio file...
+                  </div>
                 ) : voiceAudioUrl ? (
-                  <audio
-                    controls
-                    src={voiceAudioUrl}
-                    className="w-full h-8 rounded-lg"
-                  />
-                ) : null}
+                  <div className="space-y-2">
+                    <audio
+                      controls
+                      src={voiceAudioUrl}
+                      className="w-full h-8 rounded-lg"
+                    />
+                    {!isEditing && (
+                      <button
+                        onClick={() => generateTTS('voice', voiceTranscript)}
+                        disabled={audioChannelLoading !== null}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600/30 border border-blue-500/30 hover:bg-blue-600/50 text-blue-200 text-xs font-medium transition disabled:opacity-50 cursor-pointer"
+                      >
+                        🎵 Regenerate Audio
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  !isEditing && (
+                    <button
+                      onClick={() => generateTTS('voice', voiceTranscript)}
+                      disabled={audioChannelLoading !== null}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600/30 border border-blue-500/30 hover:bg-blue-600/50 text-blue-200 text-xs font-medium transition disabled:opacity-50 cursor-pointer"
+                    >
+                      🎵 Generate Audio
+                    </button>
+                  )
+                )}
               </div>
             ) : (
               <p className="text-white/40 text-sm italic">Generating voice message script...</p>
@@ -900,14 +923,37 @@ export default function PreviewPageImpl({ campaignId: propCampaignId, fromCreati
               <div className="space-y-3">
                 <p className="text-white/80 text-sm leading-relaxed whitespace-pre-wrap">{callTranscript}</p>
                 {audioChannelLoading === 'calls' ? (
-                  <p className="text-xs text-white/50 italic">🎵 Generating call audio...</p>
+                  <div className="flex items-center gap-2 text-xs text-blue-400">
+                    <span className="animate-spin">⟳</span> Generating audio file...
+                  </div>
                 ) : callAudioUrl ? (
-                  <audio
-                    controls
-                    src={callAudioUrl}
-                    className="w-full h-8 rounded-lg"
-                  />
-                ) : null}
+                  <div className="space-y-2">
+                    <audio
+                      controls
+                      src={callAudioUrl}
+                      className="w-full h-8 rounded-lg"
+                    />
+                    {!isEditing && (
+                      <button
+                        onClick={() => generateTTS('calls', callTranscript)}
+                        disabled={audioChannelLoading !== null}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600/30 border border-blue-500/30 hover:bg-blue-600/50 text-blue-200 text-xs font-medium transition disabled:opacity-50 cursor-pointer"
+                      >
+                        🎵 Regenerate Audio
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  !isEditing && (
+                    <button
+                      onClick={() => generateTTS('calls', callTranscript)}
+                      disabled={audioChannelLoading !== null}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600/30 border border-blue-500/30 hover:bg-blue-600/50 text-blue-200 text-xs font-medium transition disabled:opacity-50 cursor-pointer"
+                    >
+                      🎵 Generate Audio
+                    </button>
+                  )
+                )}
               </div>
             ) : (
               <p className="text-white/40 text-sm italic">Generating call script...</p>

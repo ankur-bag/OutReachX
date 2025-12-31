@@ -245,7 +245,7 @@ export default function ContactsPage() {
 
       <div className="flex justify-between gap-3 pt-4">
         <button
-          onClick={() => router.push('/campaign/assets')}
+          onClick={() => router.push('/campaign/docs')}
           className="px-6 py-2.5 rounded-lg bg-black/40 border border-white/20 hover:bg-black/50 text-white font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isUploading}
         >
