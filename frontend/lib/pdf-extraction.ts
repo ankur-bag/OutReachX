@@ -1,6 +1,4 @@
-'use server'
-
-import * as PdfParse from 'pdf-parse-new'
+import PdfParse from 'pdf-parse-new'
 
 export async function extractPdfText(fileBuffer: Buffer): Promise<string> {
   try {
