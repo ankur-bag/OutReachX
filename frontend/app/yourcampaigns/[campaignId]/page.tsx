@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { VscCallOutgoing } from 'react-icons/vsc'
 import type { ChannelConfig } from '@/campaign/CampaignContext'
 
 interface Asset {
@@ -49,6 +50,8 @@ export default function CampaignDetailPage() {
   const [loadedCampaign, setLoadedCampaign] = useState<LoadedCampaign | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [makingCalls, setMakingCalls] = useState(false)
+  const [callSuccess, setCallSuccess] = useState('')
 
   useEffect(() => {
     const loadCampaign = async () => {
@@ -87,6 +90,40 @@ export default function CampaignDetailPage() {
 
     loadCampaign()
   }, [campaignId])
+
+  const handleMakeCalls = async () => {
+    if (!campaignId) {
+      setError('Campaign ID not found')
+      return
+    }
+
+    try {
+      setError('')
+      setCallSuccess('')
+      setMakingCalls(true)
+
+      console.log('📞 Making calls for campaign:', campaignId)
+      const response = await fetch(`/api/campaigns/${campaignId}/make-calls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to make calls')
+      }
+
+      console.log('✅ Calls initiated:', data.callResults)
+      setCallSuccess(`📞 Calls initiated! Successful: ${data.callResults.successfulCalls}/${data.callResults.totalCalls}`)
+    } catch (err) {
+      console.error('Error making calls:', err)
+      setError(err instanceof Error ? err.message : 'Failed to make calls')
+    } finally {
+      setMakingCalls(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -144,11 +181,37 @@ export default function CampaignDetailPage() {
           >
             ← Back to Campaigns
           </Link>
+          
+          {loadedCampaign?.channels?.calls?.enabled && (
+            <button
+              onClick={handleMakeCalls}
+              disabled={makingCalls}
+              className="text-xl font-medium text-white px-2 py-1.5 border-2 border-white rounded-xl hover:bg-white/10 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {makingCalls ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  Making Calls...
+                </>
+              ) : (
+                <>
+                  <VscCallOutgoing className='text-green-400 text-xl' />
+                  Make Call
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {error && (
           <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
             {error}
+          </div>
+        )}
+
+        {callSuccess && (
+          <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+            {callSuccess}
           </div>
         )}
 

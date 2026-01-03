@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.5",
@@ -27,9 +28,12 @@
     "lucide-react": "^0.562.0",
     "next": "16.1.0",
     "papaparse": "^5.5.3",
-    "pdf-parse-new": "^2.0.0",
+    "patch-package": "^8.0.1",
+    "pdf-parse": "^1.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-icons": "^5.5.0",
+    "twilio": "^5.11.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

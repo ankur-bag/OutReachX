@@ -185,7 +185,7 @@ export default function YourCampaignsPage() {
               <div key={campaign.id} className="relative group">
                 <Link
                   href={`/yourcampaigns/${campaign.id}`}
-                  className="block rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/50 to-slate-800/50 p-6 hover:from-slate-900/70 hover:to-slate-800/70 transition cursor-pointer h-full"
+                  className="block rounded-2xl border border-white/10 bg-linear-to-br from-slate-900/50 to-slate-800/50 p-6 hover:from-slate-900/70 hover:to-slate-800/70 transition cursor-pointer h-full"
                 >
                   {/* Campaign Title */}
                   <h3 className="text-white font-semibold text-lg truncate mb-2">

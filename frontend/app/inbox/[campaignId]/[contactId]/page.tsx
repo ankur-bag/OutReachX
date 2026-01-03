@@ -331,7 +331,7 @@ const WhatsAppInbox = () => {
       {/* Main Layout */}
       <div className='flex flex-1 overflow-hidden'>
         {/* Left Panel - Contacts */}
-        <div className='w-[400px] bg-white border-r border-gray-200 flex flex-col'>
+        <div className='w-100 bg-white border-r border-gray-200 flex flex-col'>
           {/* Search */}
           <div className='p-2 bg-white shrink-0'>
             <div className='relative'>
@@ -440,7 +440,7 @@ const WhatsAppInbox = () => {
                         }`}>
                         {/* Text Content */}
                         {message.content && (
-                          <p className='text-[14.2px] leading-[19px] whitespace-pre-wrap break-words'>{message.content}</p>
+                          <p className='text-[14.2px] leading-4.75 whitespace-pre-wrap wrap-break-word'>{message.content}</p>
                         )}
 
                         {/* Voice Message - WhatsApp Style with Playback */}
@@ -490,7 +490,7 @@ const WhatsAppInbox = () => {
                               }}
                             >
                               {/* Waveform - Wider bars */}
-                              <div className='flex items-center gap-0.5 flex-shrink-0'>
+                              <div className='flex items-center gap-0.5 shrink-0'>
                                 <div className='w-2 h-8 bg-[#667781]/60 rounded-full'></div>
                                 <div className='w-2 h-10 bg-[#667781]/80 rounded-full'></div>
                                 <div className='w-2 h-8 bg-[#667781] rounded-full'></div>
@@ -501,7 +501,7 @@ const WhatsAppInbox = () => {
                               {/* Progress + Play */}
                               <div className='flex items-center gap-2 flex-1 min-w-0'>
                                 {/* Play/Pause Icon */}
-                                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 ${
                                   playingMessageId === message.id 
                                     ? 'bg-[#00a884]/30' 
                                     : 'bg-[#00a884]/20 hover:bg-[#00a884]/30'
@@ -528,11 +528,11 @@ const WhatsAppInbox = () => {
                                     ></div>
                                   </div>
                                   <div className='flex justify-between items-center gap-1 mt-1'>
-                                    <p className='text-xs text-[#667781] font-mono w-10 flex-shrink-0'>
+                                    <p className='text-xs text-[#667781] font-mono w-10 shrink-0'>
                                       {Math.floor(audioCurrentTime[message.id] || 0)}:{String(Math.floor((audioCurrentTime[message.id] || 0) * 60) % 60).padStart(2, '0')}
                                     </p>
                                     <div className='flex-1'></div>
-                                    <span className='text-xs font-medium text-[#667781] font-mono w-10 flex-shrink-0 text-right'>
+                                    <span className='text-xs font-medium text-[#667781] font-mono w-10 shrink-0 text-right'>
                                       {Math.floor(audioDuration[message.id] || 0)}:{String(Math.floor((audioDuration[message.id] || 0) * 60) % 60).padStart(2, '0')}
                                     </span>
                                   </div>

@@ -9,7 +9,7 @@ export default function ChannelsPage() {
   const { campaign, updateCampaign } = useCampaign()
   
   const [selectedChannels, setSelectedChannels] = useState<Set<'text' | 'voice' | 'calls'>>(
-    new Set(Object.keys(campaign.channels).filter(k => campaign.channels[k as keyof ChannelConfig]?.enabled))
+    new Set((Object.keys(campaign.channels).filter(k => campaign.channels[k as keyof ChannelConfig]?.enabled) as ('text' | 'voice' | 'calls')[]))
   )
   const [tone, setTone] = useState(campaign.toneOfVoice || 'professional')
   const [textWordLimit, setTextWordLimit] = useState(campaign.channels.text?.wordLimit || 100)

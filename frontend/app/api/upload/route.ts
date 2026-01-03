@@ -37,7 +37,7 @@ function isDataType(mimeType: string): boolean {
   return ALLOWED_DATA_TYPES.includes(mimeType);
 }
 
-function getResourceType(mimeType: string): string {
+function getResourceType(mimeType: string): "image" | "video" | "raw" {
   if (isImageType(mimeType)) return "image";
   if (isVideoType(mimeType)) return "video";
   if (isDataType(mimeType)) return "raw";
@@ -47,7 +47,7 @@ function getResourceType(mimeType: string): string {
 async function uploadToCloudinary(
   buffer: Buffer,
   fileName: string,
-  resourceType: string
+  resourceType: "image" | "video" | "raw"
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
