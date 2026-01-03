@@ -98,84 +98,48 @@ export async function GET(
     }
 
     const { campaignId, contactId } = await params;
-    console.log(`📬 Fetching messages for ${campaignId}/${contactId}`);
 
+    // Get messages from Firestore
+    const messagesRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("campaigns")
+      .doc(campaignId)
+      .collection("inbox")
+      .doc("contacts")
+      .collection("contacts")
+      .doc(contactId)
+      .collection("messages");
+
+    let messagesSnapshot;
     try {
-      // Try to get messages from Firestore
-      const messagesRef = db
-        .collection("users")
-        .doc(userId)
-        .collection("campaigns")
-        .doc(campaignId)
-        .collection("inbox")
-        .doc("contacts")
-        .collection("contacts")
-        .doc(contactId)
-        .collection("messages");
-
-      let messagesSnapshot;
-      try {
-        messagesSnapshot = await messagesRef
-          .orderBy("createdAt", "asc")
-          .get();
-      } catch (orderByError: any) {
-        // If orderBy fails, get all and sort in code
-        console.log(`   ℹ️ OrderBy failed, fetching all and sorting in code`);
-        const allDocs = await messagesRef.get();
-        const sortedDocs = allDocs.docs.sort((a, b) => {
-          const aTime = a.data().createdAt?.toDate?.() || new Date(a.data().createdAt || 0);
-          const bTime = b.data().createdAt?.toDate?.() || new Date(b.data().createdAt || 0);
-          return new Date(aTime).getTime() - new Date(bTime).getTime();
-        });
-        messagesSnapshot = { docs: sortedDocs };
-      }
-
-      // If messages found in Firestore, check if we need to prepend campaign messages
-      if (messagesSnapshot.docs.length > 0) {
-        console.log(`✅ Found ${messagesSnapshot.docs.length} messages in Firestore`);
-        
-        const firestoreMessages = messagesSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            sender: data.sender || "campaign",
-            type: data.type || "text",
-            content: data.content || "",
-            timestamp: data.timestamp || new Date().toISOString(),
-            audioUrl: data.audioUrl,
-            assets: data.assets,
-          };
-        });
-
-        // Check if campaign messages are missing (no msg_title, msg_preview, etc.)
-        const hasCampaignMessages = firestoreMessages.some(m => 
-          m.id === "msg_title" || m.id === "msg_preview" || m.id === "msg_audio" || m.id === "msg_assets"
-        );
-
-        if (!hasCampaignMessages && firestoreMessages.length > 0) {
-          console.log(`⚠️ Campaign messages missing, generating and prepending...`);
-          const campaignMessages = await generateCampaignMessages(userId, campaignId);
-          const allMessages = [...campaignMessages, ...firestoreMessages];
-          return NextResponse.json({ messages: allMessages });
-        }
-
-        return NextResponse.json({ messages: firestoreMessages });
-      }
-
-      // No messages in Firestore, generate campaign messages
-      console.log(`⚠️ No messages in Firestore, generating campaign messages...`);
-      const generatedMessages = await generateCampaignMessages(userId, campaignId);
-      return NextResponse.json({ messages: generatedMessages });
-    } catch (firestoreError: any) {
-      console.log(`⚠️ Firestore error: ${firestoreError.message}, generating campaign messages as fallback`);
-      const generatedMessages = await generateCampaignMessages(userId, campaignId);
-      return NextResponse.json({ messages: generatedMessages });
+      messagesSnapshot = await messagesRef
+        .orderBy("createdAt", "asc")
+        .get();
+    } catch (orderByError) {
+      // Fallback: get all and sort in code
+      const allDocs = await messagesRef.get();
+      const sortedDocs = allDocs.docs.sort((a, b) => {
+        const aTime = a.data().createdAt?.toDate?.() || new Date(a.data().createdAt || 0);
+        const bTime = b.data().createdAt?.toDate?.() || new Date(b.data().createdAt || 0);
+        return new Date(aTime).getTime() - new Date(bTime).getTime();
+      });
+      messagesSnapshot = { docs: sortedDocs };
     }
+
+    const firestoreMessages = messagesSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      sender: doc.data().sender || "user",
+      type: doc.data().type || "text",
+      content: doc.data().content || "",
+      timestamp: doc.data().timestamp || new Date().toISOString(),
+      audioUrl: doc.data().audioUrl,
+      assets: doc.data().assets,
+    }));
+
+    return NextResponse.json({ messages: firestoreMessages });
   } catch (error) {
-    console.error("❌ Error:", error);
-    return NextResponse.json(
-      { messages: [] },
-      { status: 200 }
-    );
+    console.error(error);
+    return NextResponse.json({ messages: [] });
   }
 }

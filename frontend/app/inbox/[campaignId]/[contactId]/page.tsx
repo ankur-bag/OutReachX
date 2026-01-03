@@ -242,51 +242,46 @@ const WhatsAppInbox = () => {
         ) || []
       }))
 
-      // Step 8: Wait for AI message to be created, then fetch it
-      setTimeout(async () => {
-        try {
-          const messagesResponse = await fetch(
-            `/api/inbox/${campaignId}/${selectedContactId}/messages`
-          )
-          if (!messagesResponse.ok) throw new Error('Failed to fetch messages')
+      // Step 8: Create temporary AI message with 3-dot animation
+      const aiTempId = `ai_temp_${Date.now()}`
+      const aiOptimisticMessage: Message = {
+        id: aiTempId,
+        sender: 'ai',
+        type: 'text',
+        content: '...', // 3-dot animation placeholder
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+      }
 
-          const messagesData = await messagesResponse.json()
-          const firestoreMessages = messagesData.messages.map((msg: any) => ({
-            id: msg.id,
-            sender: msg.sender === 'campaign' ? 'ai' : msg.sender,
-            type: msg.type,
-            content: msg.content || (msg.type === 'audio' ? '🎙️ Voice message' : ''),
-            timestamp: msg.timestamp
-              ? new Date(msg.timestamp).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })
-              : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            audioUrl: msg.audioUrl,
-            assets: msg.assets,
-          }))
+      // Step 9: Add AI message with animation to UI immediately
+      setMessages(prev => ({
+        ...prev,
+        [selectedContactId]: [...(prev[selectedContactId] || []), aiOptimisticMessage]
+      }))
 
-          setMessages(prev => ({
-            ...prev,
-            [selectedContactId]: firestoreMessages
-          }))
+      // Step 10: Scroll to see the AI message
+      setTimeout(() => scrollToBottom(), 0)
 
-          // Turn off typing indicator
-          setIsAiTyping(prev => ({
-            ...prev,
-            [selectedContactId]: false
-          }))
+      // Step 11: Replace the 3-dot message with actual AI response
+      setMessages(prev => ({
+        ...prev,
+        [selectedContactId]: prev[selectedContactId]?.map(m =>
+          m.id === aiTempId
+            ? { ...m, content: data.aiReply || 'No response' }
+            : m
+        ) || []
+      }))
 
-          // Scroll to bottom after AI message arrives
-          setTimeout(() => scrollToBottom(), 0)
-        } catch (error) {
-          console.error('Error fetching AI message:', error)
-          setIsAiTyping(prev => ({
-            ...prev,
-            [selectedContactId]: false
-          }))
-        }
-      }, 1500)
+      // Turn off typing indicator
+      setIsAiTyping(prev => ({
+        ...prev,
+        [selectedContactId]: false
+      }))
+
+      // Scroll to bottom after AI message arrives
+      setTimeout(() => scrollToBottom(), 0)
 
     } catch (error) {
       console.error('Error sending message:', error)
