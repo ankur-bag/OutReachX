@@ -52,6 +52,7 @@ const WhatsAppInbox = () => {
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null)
   const [audioDuration, setAudioDuration] = useState<{[key: string]: number}>({})
   const [audioCurrentTime, setAudioCurrentTime] = useState<{[key: string]: number}>({})
+  const [isAiTyping, setIsAiTyping] = useState<Record<string, boolean>>({})
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -167,22 +168,57 @@ const WhatsAppInbox = () => {
     scrollToBottom()
   }, [selectedMessages, scrollToBottom])
 
-  // Send message to Firestore
+  // Send message to Firestore with optimistic UI update
   const handleSendMessage = useCallback(async () => {
     if (!selectedContactId || !campaignId) return
 
     let payload
+    let messageContent = ''
     
     // CAMPAIGN ORDER: Use campaign data if no user input, otherwise use typed message
     if (!inputValue.trim()) {
       payload = buildCampaignMessage() // Title + AI desc + audio + assets
+      messageContent = payload.message || ''
     } else {
       payload = { message: inputValue } // User typed message
+      messageContent = inputValue
     }
 
+    // Step 1: Create temporary message with optimistic ID
+    const tempId = `temp_${Date.now()}`
+    const optimisticMessage: Message = {
+      id: tempId,
+      sender: 'user',
+      type: 'text',
+      content: messageContent,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      audioUrl: undefined,
+      assets: undefined,
+    }
+
+    // Step 2: Add message to UI IMMEDIATELY (Optimistic update)
+    setMessages(prev => ({
+      ...prev,
+      [selectedContactId]: [...(prev[selectedContactId] || []), optimisticMessage]
+    }))
+
+    // Step 3: Show typing indicator for AI
+    setIsAiTyping(prev => ({
+      ...prev,
+      [selectedContactId]: true
+    }))
+
+    // Step 4: Clear input field immediately
     setInputValue('')
 
+    // Step 5: Scroll to bottom after adding message
+    setTimeout(() => scrollToBottom(), 0)
+
     try {
+      // Step 6: Send to Firestore (Background async - non-blocking)
       const response = await fetch(
         `/api/inbox/${campaignId}/${selectedContactId}/send`,
         {
@@ -194,7 +230,19 @@ const WhatsAppInbox = () => {
 
       if (!response.ok) throw new Error('Failed to send message')
 
-      // Reload messages after a short delay to ensure Firestore write completes
+      const data = await response.json()
+
+      // Step 7: Replace temporary ID with real Firestore ID when API responds
+      setMessages(prev => ({
+        ...prev,
+        [selectedContactId]: prev[selectedContactId]?.map(m =>
+          m.id === tempId
+            ? { ...m, id: data.messageId || tempId }
+            : m
+        ) || []
+      }))
+
+      // Step 8: Wait for AI message to be created, then fetch it
       setTimeout(async () => {
         try {
           const messagesResponse = await fetch(
@@ -202,8 +250,8 @@ const WhatsAppInbox = () => {
           )
           if (!messagesResponse.ok) throw new Error('Failed to fetch messages')
 
-          const data = await messagesResponse.json()
-          const firestoreMessages = data.messages.map((msg: any) => ({
+          const messagesData = await messagesResponse.json()
+          const firestoreMessages = messagesData.messages.map((msg: any) => ({
             id: msg.id,
             sender: msg.sender === 'campaign' ? 'ai' : msg.sender,
             type: msg.type,
@@ -222,16 +270,38 @@ const WhatsAppInbox = () => {
             ...prev,
             [selectedContactId]: firestoreMessages
           }))
-          
-          // Scroll to bottom after messages reload
+
+          // Turn off typing indicator
+          setIsAiTyping(prev => ({
+            ...prev,
+            [selectedContactId]: false
+          }))
+
+          // Scroll to bottom after AI message arrives
           setTimeout(() => scrollToBottom(), 0)
         } catch (error) {
-          console.error('Error reloading messages:', error)
+          console.error('Error fetching AI message:', error)
+          setIsAiTyping(prev => ({
+            ...prev,
+            [selectedContactId]: false
+          }))
         }
       }, 1500)
+
     } catch (error) {
       console.error('Error sending message:', error)
-      setInputValue(payload.message || '') // Restore input on error
+      
+      // Remove optimistic message if send fails
+      setMessages(prev => ({
+        ...prev,
+        [selectedContactId]: prev[selectedContactId]?.filter(m => m.id !== tempId) || []
+      }))
+
+      // Turn off typing indicator
+      setIsAiTyping(prev => ({
+        ...prev,
+        [selectedContactId]: false
+      }))
     }
   }, [inputValue, selectedContactId, campaignId, scrollToBottom, buildCampaignMessage])
 
@@ -518,6 +588,23 @@ const WhatsAppInbox = () => {
                   )
                 })
               )}
+
+              {/* AI Typing Indicator */}
+              {isAiTyping[selectedContactId] && (
+                <div className='flex justify-end'>
+                  <div className='bg-[#d9fdd3] text-[#111b21] rounded-lg rounded-br-none px-3 py-2 shadow-sm'>
+                    <div className='flex items-center gap-1'>
+                      <span className='text-sm text-[#667781]'>AI is typing</span>
+                      <div className='flex gap-1 ml-1'>
+                        <span className='w-2 h-2 bg-[#00a884] rounded-full animate-bounce' style={{ animationDelay: '0ms' }}></span>
+                        <span className='w-2 h-2 bg-[#00a884] rounded-full animate-bounce' style={{ animationDelay: '150ms' }}></span>
+                        <span className='w-2 h-2 bg-[#00a884] rounded-full animate-bounce' style={{ animationDelay: '300ms' }}></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
           </div>

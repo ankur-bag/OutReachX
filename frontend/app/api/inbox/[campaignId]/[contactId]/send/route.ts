@@ -79,7 +79,11 @@ export async function POST(
       }, { merge: true });
     }, 1000);
 
-    return NextResponse.json({ success: true });
+    // Return message ID for optimistic update replacement
+    return NextResponse.json({ 
+      success: true,
+      messageId: userMsgId
+    });
   } catch (error) {
     console.error("❌ Error:", error);
     return NextResponse.json(
