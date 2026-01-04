@@ -99,6 +99,8 @@ export async function GET(
 
     const { campaignId, contactId } = await params;
 
+    console.log(`📨 Fetching messages for contact ${contactId} in campaign ${campaignId}`);
+
     // Get messages from Firestore
     const messagesRef = db
       .collection("users")
@@ -114,32 +116,42 @@ export async function GET(
     let messagesSnapshot;
     try {
       messagesSnapshot = await messagesRef
-        .orderBy("createdAt", "asc")
+        .orderBy("timestamp", "asc")
         .get();
+      console.log(`✅ Found ${messagesSnapshot.docs.length} messages using timestamp ordering`);
     } catch (orderByError) {
+      console.log(`⚠️ OrderBy failed, falling back to manual sort:`, (orderByError as any).message);
       // Fallback: get all and sort in code
       const allDocs = await messagesRef.get();
+      console.log(`📦 Retrieved ${allDocs.docs.length} total messages without ordering`);
       const sortedDocs = allDocs.docs.sort((a, b) => {
-        const aTime = a.data().createdAt?.toDate?.() || new Date(a.data().createdAt || 0);
-        const bTime = b.data().createdAt?.toDate?.() || new Date(b.data().createdAt || 0);
+        const aData = a.data();
+        const bData = b.data();
+        // Try timestamp first, then createdAt, then fallback to 0
+        const aTime = aData.timestamp || aData.createdAt?.toDate?.() || new Date(aData.createdAt || 0);
+        const bTime = bData.timestamp || bData.createdAt?.toDate?.() || new Date(bData.createdAt || 0);
         return new Date(aTime).getTime() - new Date(bTime).getTime();
       });
       messagesSnapshot = { docs: sortedDocs };
     }
 
-    const firestoreMessages = messagesSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      sender: doc.data().sender || "user",
-      type: doc.data().type || "text",
-      content: doc.data().content || "",
-      timestamp: doc.data().timestamp || new Date().toISOString(),
-      audioUrl: doc.data().audioUrl,
-      assets: doc.data().assets,
-    }));
+    const firestoreMessages = messagesSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        sender: data.sender || "user",
+        type: data.type || "text",
+        content: data.content || "",
+        timestamp: data.timestamp || new Date().toISOString(),
+        audioUrl: data.audioUrl,
+        assets: data.assets,
+      };
+    });
 
+    console.log(`📊 Returning ${firestoreMessages.length} messages`);
     return NextResponse.json({ messages: firestoreMessages });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ messages: [] });
+    console.error(`❌ Error fetching messages:`, error);
+    return NextResponse.json({ messages: [], error: (error as any).message });
   }
 }

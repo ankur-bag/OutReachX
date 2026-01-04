@@ -126,25 +126,27 @@ export async function generateCampaignReply({
     if (!campaignDoc.exists) return 'Campaign not found';
 
     const data = campaignDoc.data()!;
+    // Only use description and document extracts - NOT the title
     const context = `
-${data.title}
-${data.description?.original || ''}
+${data.description?.original || data.description || ''}
 ${data.documents?.map((d: any) => d.extractedText).join('\n\n') || ''}
     `.trim();
 
     const history = await loadChatHistory({ userId, campaignId, contactId });
 
-    const prompt = `Campaign Assistant for "${data.title}"
+    const prompt = `You are a professional assistant. Provide clear, formal, and informative responses.
 
-Answer ONLY from context: ${context}
+Only answer based on this information:
+${context}
 
-History: ${history.map((h) => `User: ${h.input}\nAI: ${h.output}`).join('\n')}
+Conversation history:
+${history.map((h) => `User: ${h.input}\nAssistant: ${h.output}`).join('\n')}
 
 User: ${message}
-AI:`;
+Assistant:`;
 
     const result = await model.invoke(prompt);
-    const aiReply = result.content?.toString().trim() || 'Ask about campaign details';
+    const aiReply = result.content?.toString().trim() || 'I am here to assist you with any questions regarding the provided information.';
 
     await saveChatHistory({ userId, campaignId, contactId, aiReply });
     return aiReply;

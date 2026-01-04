@@ -188,25 +188,33 @@ export default function CampaignDetailPage() {
             ← Back to Campaigns
           </Link>
           
-          {loadedCampaign?.channels?.calls?.enabled && (
-            <button
-              onClick={handleMakeCalls}
-              disabled={makingCalls}
-              className="text-xl font-medium text-white px-2 py-1.5 border-2 border-white rounded-xl hover:bg-white/10 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/analytics/${loadedCampaign.id}`}
+              className="text-lg font-medium text-white px-4 py-2 border-2 border-purple-500 rounded-xl hover:bg-purple-500/10 transition cursor-pointer flex items-center gap-2"
             >
-              {makingCalls ? (
-                <>
-                  <span className="inline-block animate-spin">⏳</span>
-                  Making Calls...
-                </>
-              ) : (
-                <>
-                  <VscCallOutgoing className='text-green-400 text-xl' />
-                  Make Call
-                </>
-              )}
-            </button>
-          )}
+              📊 Analytics
+            </Link>
+            {loadedCampaign?.channels?.calls?.enabled && (
+              <button
+                onClick={handleMakeCalls}
+                disabled={makingCalls}
+                className="text-lg font-medium text-white px-4 py-2 border-2 border-white rounded-xl hover:bg-white/10 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {makingCalls ? (
+                  <>
+                    <span className="inline-block animate-spin">⏳</span>
+                    Making Calls...
+                  </>
+                ) : (
+                  <>
+                    <VscCallOutgoing className='text-green-400 text-xl' />
+                    Make Call
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {error && (

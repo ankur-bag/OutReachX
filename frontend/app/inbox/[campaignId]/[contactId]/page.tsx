@@ -110,15 +110,31 @@ const WhatsAppInbox = () => {
     fetchCampaignData(campaignId)
   }, [campaignId, isSignedIn, fetchCampaignData])
 
-  // Handle contact selection from URL or default to first
+  // Set selected contact from URL parameter
   useEffect(() => {
-    if (!contacts.length) return
-
-    const contactToSelect = contactId || contacts[0]?.id
-    if (contactToSelect && contactToSelect !== selectedContactId) {
-      setSelectedContactId(contactToSelect)
+    if (contactId) {
+      console.log(`👤 Setting selected contact to: ${contactId}`);
+      setSelectedContactId(contactId)
     }
-  }, [contactId, contacts, selectedContactId])
+  }, [contactId])
+
+  // Handle contact selection - mark as opened
+  useEffect(() => {
+    if (!selectedContactId || !campaignId) return
+
+    const markChatAsOpened = async () => {
+      try {
+        await fetch(
+          `/api/inbox/${campaignId}/${selectedContactId}/opened`,
+          { method: 'POST' }
+        )
+      } catch (error) {
+        console.error('Error marking chat as opened:', error)
+      }
+    }
+
+    markChatAsOpened()
+  }, [selectedContactId, campaignId])
 
   // Load messages from Firestore
   useEffect(() => {
@@ -132,6 +148,7 @@ const WhatsAppInbox = () => {
         if (!response.ok) throw new Error('Failed to fetch messages')
 
         const data = await response.json()
+        console.log(`📨 Loaded ${data.messages.length} messages for contact ${selectedContactId}`);
         const firestoreMessages = data.messages.map((msg: any) => ({
           id: msg.id,
           sender: msg.sender === 'campaign' ? 'ai' : msg.sender,
@@ -152,7 +169,7 @@ const WhatsAppInbox = () => {
           [selectedContactId]: firestoreMessages
         }))
       } catch (error) {
-        console.error('Error loading messages:', error)
+        console.error('❌ Error loading messages:', error)
         setMessages(prev => ({
           ...prev,
           [selectedContactId]: []
@@ -367,7 +384,7 @@ const WhatsAppInbox = () => {
                   />
                   {contact.unread && (
                     <div className='absolute -top-1 -right-1 w-5 h-5 bg-[#25d366] rounded-full text-xs flex items-center justify-center font-medium text-white'>
-                      1
+                      ●
                     </div>
                   )}
                 </div>
