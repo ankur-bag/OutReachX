@@ -77,7 +77,7 @@ export default function InboxPage() {
         <div className='text-center space-y-3'>
           <div className='flex justify-center'>
             <img 
-              src="/favicon.svg" 
+              src="/favicon 2.svg" 
               alt="Loading" 
               className="w-12 h-12 animate-spin"
             />
