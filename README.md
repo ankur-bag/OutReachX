@@ -1,4 +1,4 @@
-# OutreachX - AI-Powered Campaign Automation Platform
+# OutreachX - AI-Powered Campaign Automation Platform (Saas Platform)
 
 OutreachX is a first-of-its-kind digital campaign automation system that empowers users to launch multi-channel outreach campaigns in just one click. Built with Next.js, Firebase, and Google AI, it combines intelligent content generation with real-time messaging capabilities to revolutionize how organizations connect with their audiences.
 
@@ -259,6 +259,3 @@ Send product announcements, order updates, and customer support messages through
 
 Manage customer inquiries through a unified inbox interface. Use AI to provide instant responses based on knowledge base documents.
 
----
-
-**Built with ❤️ for modern outreach teams**
