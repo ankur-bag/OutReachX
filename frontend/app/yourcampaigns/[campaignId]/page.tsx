@@ -131,7 +131,13 @@ export default function CampaignDetailPage() {
        
         <div className="max-w-6xl mx-auto px-4 py-12 flex items-center justify-center h-[60vh]">
           <div className="text-center space-y-3">
-            
+            <div className="flex justify-center">
+              <img 
+                src="/favicon.svg" 
+                alt="Loading" 
+                className="w-12 h-12 animate-spin"
+              />
+            </div>
             <p className="text-white">Loading campaign...</p>
           </div>
         </div>

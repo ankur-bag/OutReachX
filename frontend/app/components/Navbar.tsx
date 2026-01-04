@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   SignInButton,
   SignUpButton,
@@ -11,8 +12,17 @@ import {
 const Navbar = () => {
   return (
     <div className='w-full h-18 flex items-center px-10 justify-between bg-black border-b border-white/10'>
-      <Link href="/" className='text-3xl font-["Google Sans Flex"] text-white cursor-pointer hover:text-white/80 transition'>
-        OutreachX
+      <Link href="/" className='flex items-center gap-3 cursor-pointer hover:opacity-80 transition'>
+        <Image 
+          src="/favicon.svg" 
+          alt="OutreachX Logo" 
+          width={20}
+          height={20}
+          className="w-6 h-6 sm:w-8 sm:h-8 md:w-8 md:h-8"
+        />
+        <span className='text-2xl sm:text-3xl font-["Google Sans Flex"] text-white hover:text-white/80 transition'>
+          OutreachX
+        </span>
       </Link>
       <div className='flex justify-between gap-5 items-center'>
         <SignedOut>

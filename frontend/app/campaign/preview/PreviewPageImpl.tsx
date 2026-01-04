@@ -614,6 +614,13 @@ export default function PreviewPageImpl({ campaignId: propCampaignId, fromCreati
     return (
       <div className="space-y-6 flex flex-col h-[60vh] items-center justify-center">
         <div className="text-center space-y-3">
+          <div className="flex justify-center">
+            <img 
+              src="/favicon.svg" 
+              alt="Loading" 
+              className="w-12 h-12 animate-spin"
+            />
+          </div>
           <p className="text-white">Loading your campaign's preview ..... </p>
         </div>
       </div>

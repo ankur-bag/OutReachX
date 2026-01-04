@@ -11,6 +11,9 @@ import '@fontsource/google-sans-flex';
 export const metadata: Metadata = {
   title: "OutreachX",
   description: "Start your digital campaigns with OutreachX.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

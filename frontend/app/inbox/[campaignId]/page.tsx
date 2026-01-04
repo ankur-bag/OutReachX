@@ -52,8 +52,14 @@ export default function CampaignPage() {
   // Show loading state while redirecting
   return (
     <div className='h-screen bg-[#111b21] text-white flex items-center justify-center'>
-      <div className='text-center'>
-        <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-[#00a884] mx-auto mb-4'></div>
+      <div className='text-center space-y-3'>
+        <div className='flex justify-center'>
+          <img 
+            src="/favicon.svg" 
+            alt="Loading" 
+            className="w-12 h-12 animate-spin"
+          />
+        </div>
         <p className='text-[#667781]'>Loading campaign...</p>
       </div>
     </div>

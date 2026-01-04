@@ -74,8 +74,15 @@ export default function InboxPage() {
   if (loading) {
     return (
       <div className='h-screen flex items-center justify-center bg-white'>
-        <div className='text-center'>
-          <p className='text-gray-600 mb-2'>Loading campaigns...</p>
+        <div className='text-center space-y-3'>
+          <div className='flex justify-center'>
+            <img 
+              src="/favicon.svg" 
+              alt="Loading" 
+              className="w-12 h-12 animate-spin"
+            />
+          </div>
+          <p className='text-gray-600'>Loading campaigns...</p>
         </div>
       </div>
     )
