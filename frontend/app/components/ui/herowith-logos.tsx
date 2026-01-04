@@ -43,16 +43,16 @@ const FUIHeroWithBorders = ({ isSignedIn = false, onCampaignClick }: FUIHeroWith
 
                 <div className=" dark:divide-dark-border flex items-start justify-center divide-y divide-white/10  px-8 sm:px-24">
                     <div className="flex w-full max-w-[80vw] flex-col items-center justify-start md:!max-w-[392px]">
-                        <a href="/docs" className="cursor-pointer w-full">
+                        <button className=" w-full">
                             <div
                                 className={clsx(
                                     '!h-14 flex-col items-center justify-center rounded-none !text-base',
                                     'max-w-sm:!border-x-0 dark:border-dark-border flex w-full !border-x !border-y-0 border-white/10 !bg-transparent backdrop-blur-xl transition-colors duration-150 hover:!bg-black/5 dark:hover:!bg-white/5',
                                 )}
                             >
-                                Learn more
+                                Ready?
                             </div>
-                        </a>
+                        </button>
                         {isSignedIn ? (
                           <button onClick={onCampaignClick} className="cursor-pointer w-full">
                               <div
