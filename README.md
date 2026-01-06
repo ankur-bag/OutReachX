@@ -83,6 +83,12 @@ Title → Description (AI-enhanced) → Channels → Assets → Documents → Co
 - Encrypted data in transit
 - Secure file validation
 
+## Team Members
+- Ankur Bag
+- Samrit Mukherjee
+- Dhritiman Siva
+- Aryabi Bhattacharjee 
+
 **Important**: Users are responsible for obtaining proper consent and complying with WhatsApp, telecom, and data protection regulations.
 
 ---
