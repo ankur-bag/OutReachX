@@ -83,6 +83,9 @@ Title → Description (AI-enhanced) → Channels → Assets → Documents → Co
 - Encrypted data in transit
 - Secure file validation
 
+## YouTube Link:
+https://www.youtube.com/watch?v=dlUTSbjGu3o
+
 ## Team Members
 - Ankur Bag
 - Samrit Mukherjee
