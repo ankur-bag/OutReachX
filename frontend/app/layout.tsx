@@ -7,7 +7,7 @@ import {
   ClerkProvider,
 } from '@clerk/nextjs'
 import '@fontsource/google-sans-flex';
-
+import Clarity from "./Clarity";
 export const metadata: Metadata = {
   title: "OutreachX",
   description: "Start your digital campaigns with OutreachX.",
@@ -28,6 +28,7 @@ export default function RootLayout({
           <body suppressHydrationWarning>
             <Navbar />
             {children}
+            <Clarity />
           </body>
         </html>
       </OnboardingProvider>
